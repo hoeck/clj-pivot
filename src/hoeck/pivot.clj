@@ -6,32 +6,34 @@
         clojure.contrib.except)
   (:require [hoeck.pivot.Application :as app]
 	    [clojure.xml :as xml])
-  (:import (org.apache.pivot.wtk Window 
-				 Component
-				 Button
-				 Button$Group
-				 PushButton
-				 RadioButton
-				 Checkbox
+  (:import (org.apache.pivot.wtk DesktopApplicationContext Application Display
+                                 ;; containers
 				 Container
-				 Accordion
-				 BoxPane
-				 ScrollPane
-				 Application
-				 DesktopApplicationContext
-				 Display
-				 HorizontalAlignment
-				 VerticalAlignment
-                                 Border
-				 Label
-				 SortDirection
-                                 Insets
-				 Slider
-                                 Orientation
-				 TableView
-                                 Dimensions
-				 TableViewHeader
-				 TableViewSelectionListener)
+                                 Window
+                                 Form Form$Section
+                                 SplitPane SplitPane$Region
+                                 TabPane Accordion BoxPane Border
+				 ScrollPane ScrollPane$ScrollBarPolicy Panorama
+                                 ;; components
+                                 Component 
+                                 Label Slider
+				 Button Button$Group PushButton RadioButton Checkbox
+                                 TextInput TextArea
+                                 ;; tables
+                                 TableView TableViewHeader TableView$SelectMode TableView$Column
+                                 ;; enums, structs
+                                 Orientation SortDirection Insets Dimensions VerticalAlignment HorizontalAlignment)
+           (org.apache.pivot.wtk.content TableViewBooleanCellRenderer 
+                                         TableViewCellRenderer
+                                         TableViewDateCellRenderer
+                                         TableViewFileSizeCellRenderer
+                                         TableViewImageCellRenderer
+                                         TableViewMultiCellRenderer
+                                         TableViewNumberCellRenderer
+                                         TableViewCellEditor
+                                         TableViewRowEditor)
+           (org.apache.pivot.wtk.text.validation Validator)
+           (org.apache.pivot.util Filter)
 	   (org.apache.pivot.wtkx WTKXSerializer)
 	   (org.apache.pivot.collections Map)
 	   (java.awt Color Font)
@@ -100,7 +102,63 @@
   ;;look icon up in the gobal image map an return an image or nil or throw sth.
   )
 
+(defn get-scrollbar-policy
+  "Mapping from keywords to ScrollPane$ScrollBarPolicy enums."
+  [key]
+  (condp = key
+    :always ScrollPane$ScrollBarPolicy/ALWAYS
+    :auto ScrollPane$ScrollBarPolicy/AUTO
+    :fill ScrollPane$ScrollBarPolicy/FILL
+    :fill-to-capacity ScrollPane$ScrollBarPolicy/FILL_TO_CAPACITY
+    :never ScrollPane$ScrollBarPolicy/NEVER))
 
+(defn make-validator
+  "Return an org.apache.pivot.wtk.text.validation.Validator.
+  f must be a function of at least one arg, which is called with
+  a String and should return logical true if the string is valid."
+  [f]
+  (proxy [Validator] []
+    (isValid [text] (if (f text) true false))))
+
+(defn get-table-view-select-mode [keyword]
+  (condp = keyword
+    :multi TableView$SelectMode/MULTI
+    :none TableView$SelectMode/NONE
+    :single TableView$SelectMode/SINGLE))
+
+(defn get-sort-direction [keyword]
+  (condp = keyword
+    :asc SortDirection/ASCENDING
+    :desc SortDirection/DESCENDING))
+
+(defn make-filter
+  "Return a org.apache.pivot.util.Filter with the function f performing
+  the boolean include(Object item) method. f should return logical true for
+  item to be included."
+  [f]
+  (proxy [Filter] []
+    (include [item] (if (f item) true false))))
+
+(defn make-table-view-cell-renderer
+  "Return a TableView$CellRenderer, defaults (= arg nil) to
+  one that renders strings."
+  [arg]
+  (condp = (or arg :string)
+    :boolean (TableViewBooleanCellRenderer.)
+    :string (TableViewCellRenderer.)
+    :date (TableViewDateCellRenderer.)
+    :filesize (TableViewFileSizeCellRenderer.)
+    :image (TableViewImageCellRenderer.)
+    :multi (TableViewMultiCellRenderer.)
+    :number (TableViewNumberCellRenderer.)))
+
+(defn make-table-view-editor [key]
+  (condp = key
+    :row (TableViewRowEditor.)
+    :cell (TableViewCellEditor.)))
+
+
+;; show a single window
 
 (defn show-only [window]
   (if-let [disp (:display @appstate)]
@@ -108,14 +166,9 @@
 	(.open window disp))
     (throwf "no display available")))
 
-;; (window (boxpane (border (boxpane (label :text "hallo")
-;; 				  (accordion {:color :red}
-;; 					     (accordion-pane :icon :icon1
-;; 							     :label bar
-;; 							     (button :text "world"
-;; 								     :text foo)))))))
 
-;; another try
+;; tools for component constructors
+
 (defn parse-component-ctor-args
   "keywords, style-map, components"
   [arglist]
@@ -136,10 +189,8 @@
 		   (recur more :components keyargs s components other)
 		   (recur a :components keyargs style components other)))
 	:components (let [[c & more] a]
-		      (if (isa? (type c) Component)
-			(recur more mode keyargs style (conj components c) other)
-			(recur more mode keyargs style components (conj other c)))))
-      {:style style :args keyargs :components components :other-args other})))
+		      (recur more mode keyargs style (conj components c) other)))
+      {:style style :args keyargs :components components})))
 
 ;;(parse-args [:a 1 :b 2 {:style 'foo} (BoxPane.) (Border.) (Border.) 'foo])
 
@@ -226,23 +277,127 @@
 
 (def-component-ctor accordion [args style components]
   (with-component [acc Accordion]
-    (let [p (.getPanels acc)]
-      (doseq [c components]
-	(.add p c)))
+    (doseq [acc-panel-f components]
+      (acc-panel-f acc))
     (cond-call-it args
-	:icons (dorun (map (fn [p i] (Accordion/setIcon p (get-icon i)))
-			   (.getPanels acc)
-			   it))
-	:labels (dorun (map (fn [p l] (Accordion/setLabel p (str l)))
-			    (.getPanels acc)
-			    it))
-	:selected-index (.setSelectedIndex acc it))))
+      :selected-index (.setSelectedIndex acc it))))
+
+(def-component-ctor accordion-panel [args components]
+  (let [[c] components]
+    (fn [accordion]
+      (.add (.getPanels accordion) c)
+      (cond-call-it args
+        :label (Accordion/setLabel c (str it))
+        :icon (Accordion/setIcon c (get-icon it)))
+      c)))
+
+;; forms
+
+(def-component-ctor form [args style components]
+  (with-component [fm Form]
+    (doseq [add-section-f components]
+      (add-section-f fm))))
+
+(def-component-ctor form-section [args components]
+  (fn [form]
+    (let [sec (or (:self args) (Form$Section.))]
+      (.add (.getSections form) sec)
+      (doseq [add-form-component-f components]
+        (add-form-component-f sec))
+      (cond-call-it args
+        :heading (.setHeading sec (str it))))))
+
+(def-component-ctor form-component [args components]
+  (let [[c] components]
+    (fn [section]
+      (.add section c)
+      (cond-call-it args
+        :label (Form/setLabel c (str it)))
+      c)))
+
+;;(form (form-section :header 'blah 
+;;                    (form-component :label .. component)
+;;                    (form-component :label .. component))
+;;      (form-section :header 'blah
+;;                    (form-component :label .. component)
+;;                    (form-component :label .. component)))
+
+;; tabs
+
+(def-component-ctor tabpane [args style components]
+  (with-component [ta TabPane]
+    (let [tab-sequence (.getTabs ta)]
+      (doseq [add-tab-f components]
+        (add-tab-f tab-sequence)))
+    (cond-call-it args
+      :corner (.setCorner ta it)
+      :selected-index (.setSelectedIndex ta it))))
+
+(def-component-ctor tabpane-component [args components]
+  (let [[c] components]
+    (fn [tab-sequence]
+      (.add tab-sequence c)
+      (cond-call-it args
+        :closeable (TabPane/setCloseable c it)
+        :label (TabPane/setLabel c it)
+        :icon (TabPane/setIcon c (get-icon it))))))
+
+;;(show-only (window (tabpane (tabpane-component :label "FOO"
+;;                                               (boxpane :orientation :vert
+;;                                                        (push-button :data 'A)
+;;                                                        (push-button :data 'D)))
+;;                            (tabpane-component :label "BAR"
+;;                                               (boxpane :orientation :horiz
+;;                                                        (push-button :data 'B)
+;;                                                        (push-button :data 'C))))))
+
+(def-component-ctor splitpane [args style]
+  (with-component [sp SplitPane]
+    (cond-call-it args
+      :locked (.setLocked sp it)
+      :orientation (.setOrientation sp (get-orientation it))
+      :primary-region (.setPrimaryRegion sp (condp = it
+                                              :top-left SplitPane$Region/TOP_LEFT
+                                              :bottom-right SplitPane$Region/BOTTOM_RIGHT))
+      :split-ratio (.setSplitRatio sp it)
+      ;; components
+      :bottom (.setBottom sp it)
+      :bottom-right (.setBottomRight sp it)
+      :left (.setLeft sp it)
+      :right (.setRight sp it)
+      :top (.setTop sp it)
+      :top-left (.setTopLeft sp it))))
+
+
+;; views
 
 (def-component-ctor scrollpane [args style components]
   (with-component [sc ScrollPane]
     (doseq [c components] (.add sc c))
     (cond-call-it args
-      :consume-repaint (.setConsumeRepaint sc it))))
+      :horiz-scrollbar-policy (.setHorizontalScrollBarPolicy sc (get-scrollbar-policy it))
+      :vert-scrollbar-policy (.setVerticalScrollBarPolicy sc (get-scrollbar-policy it))
+      :consume-repaint (.setConsumeRepaint sc it)
+      :scroll-left (.setScrollLeft sc it)
+      :scroll-top (.setScrollTop sc it)
+      ;; components
+      :corner (.setCorner sc it)
+      :row-header (.setRowHeader sc it)
+      :column-header (.setColumnHeader sc it)
+      :view (.setView sc it))))
+
+(def-component-ctor panorama [args style components]
+  (with-component [pa Panorama]
+    (doseq [c components] (.add pa c))
+    (cond-call-it args
+      :consume-repaint (.setConsumeRepaint pa it)
+      :scroll-left (.setScrollLeft pa it)
+      :scroll-top (.setScrollTop pa it)
+      ;; components
+      :view (.setView pa it))))
+
+
+;; components
 
 (def-component-ctor slider [args style components] ;; why is a slider a container?
   (with-component [sl Slider]
@@ -250,21 +405,82 @@
     (cond-call-it args
       :range (let [[min max] it] (.setRange sl min max)))))
 
-;; components
+;; text
 
 (def-component-ctor label [args style]
   (with-component [la Label]
     (when-it (:text args) (.setText la it))))
 
+(def-component-ctor text-input [args style components]
+  (with-component [ti TextInput]
+    (cond-call-it args
+      :max-length (.setMaximumLength ti it)
+      :password (.setPassword ti it)
+      :prompt (.setPrompt ti (str it))
+      :selection (let [[s e] it] (.setSelection ti s e))
+      :text (.setText ti (str it))
+      :text-key (.setTextKey ti (str it))
+      :text-node (.setTextNode ti it)
+      :text-size (.setTextSize ti it)
+      :validator (.setValidator ti (make-validator it)))))
+
+(def-component-ctor text-area [args style components]
+  (with-component [ta TextArea]
+    (cond-call-it args 
+      :editable (.setEditable ta it)
+      :selection (let [[s e] it] (.setSelection ta s e))
+      :text (.setText ta (str it))
+      :text-key (.setTextKey ta (str it)))))
+
+
+;; tables
+
+(def-component-ctor table-view [args style components] ;; actually, components are TableView$Columns
+  (with-component [t TableView]
+    (let [col-sequence (.getColumns t)]
+      (doseq [column components]
+        (.add col-sequence column)))
+    (cond-call-it args
+      :disabled-filter (.setDisabledRowFilter t (make-filter it))
+      :row-editor (.setRowEditor t (make-table-view-editor it))
+      :selected-index (if (number? it) 
+                        (.setSelectedIndex t it)
+                        (let [[s e] it] (.setSelectedRange t s e))) ;; TODO: add support for ranges [[s0 e0] [s1 e1] ..]
+      :select-mode (.setSelectMode t (get-table-view-select-mode it))
+      :data (.setTableData t it))))
+
+(def-component-ctor table-view-column [args style] ;; actually, not a component
+  (let [tv (or (:self args) (TableView$Column.))]
+    (cond-call-it args
+      :filter (.setFilter tv (make-filter it))
+      :cell-renderer (.setCellRenderer tv (make-table-view-cell-renderer it))
+      :header-data (.setHeaderData tv it) ;; String?
+      :name (.setName tv (str it))
+      :sort-direction (.setSortDirection tv (get-sort-direction it))
+      :width (.setWidth tv it)
+      :relative (.setWidth tv (.getWidth tv) it))
+    tv))
+
+;;http://mail-archives.apache.org/mod_mbox/incubator-pivot-user/200909.mbox/%3C168ef9ac0909080333u7113b048wd5601d87d0c34804@mail.gmail.com%3E
+;;> Can I invoke the editor in my code rather than relying on a double click to
+;;> invoke it? For example I might have an "Edit" button.
+;;
+;;Yep - you can call tableView.getRowEditor().edit(tableView,
+;;tableView.getSelectedIndex(), columnIndex) to initiate an edit on the
+;;selected row at whatever column index you choose.
+
+
+;; buttons
+
 (defn button-arg-handler
   "handler for common button args"
   [button args]
   (cond-call-it args
-      :group (.setGroup button (if (isa? (type it) Button$Group)
-				 it
-				 (str it)))
-      :data (.setButtonData button it)
-      :selected (.setSelected button it)))
+    :group (.setGroup button (if (isa? (type it) Button$Group)
+                               it
+                               (str it)))
+    :data (.setButtonData button it)
+    :selected (.setSelected button it)))
 
 (def-component-ctor push-button [args style]
   (with-component [pb PushButton]
@@ -278,17 +494,88 @@
   (with-component [cb Checkbox]
     (button-arg-handler cb args)))
 
+
 ;;(show-only (window (label :self (Label.) :text "Hallo YOU" {:font ["Arial" :bold 70]})))
 
+
+(defn make-list [s]
+  (let [l (org.apache.pivot.collections.LinkedList.)]
+    (doseq [elem s]
+      (.add l elem))
+    l))
+
+(def __i (gen-interface :name ITestBean1 :methods [[getA [] Object]
+                                                   [getB [] Object]
+                                                   [getC [] Object]
+                                                   [getD [] Object]]))
+hoeck.pivot.ITestBean1
+
+
 (comment
+  
+  (def __t  (table-view
+             :preferred-size [200 400]
+             :data (make-list {:a 1 :b 2 :c 3 :d 4})
+             (table-view-column :name 'a)
+             (table-view-column :name 'b)
+             (table-view-column :name 'c)
+             (table-view-column :name 'd)))
+  (show-only (window __t :maximized true))
+  (.add (.getTableData __t) (Object.))
+
+  (show-only (window (form :preferred-size [200 300]
+                           (form-section :header "foo" 
+                                         (form-component :label 'name (text-input :prompt 'vorname))
+                                         (form-component :label 'nachname (text-input :prompt 'nachname)))
+                           (form-section :header "Adresse" 
+                                         (form-component :label 'plz (text-input :prompt 'plz))
+                                         (form-component :label 'ort (text-input :prompt 'ort)))
+                           (form-section :header "Sonstiges" 
+                                         (form-component :label 'Bemerkungen (border 
+                                                                                      
+                                                                              (scrollpane
+                                                                               :preferred-size [100 100]
+                                                                               (text-area;;:preferred-size [100 100]
+                                                                                :text "FOOOOOO"))))))))
+  (show-only (window (boxpane 
+                      (splitpane
+                       :preferred-size [300 200]
+                       :primary-region :top-left
+                       :orientation :vert
+                       :split-ratio 0.9
+                       :top-left (push-button :data "foobar")
+                       :bottom-right (push-button :data "bakbaz")))))
   (show-only
-   (window (boxpane (border (boxpane			     
-			     (label :text "accordion" {:font ["Arial" :bold 70]})
-			     (accordion :preferred-size [100 400]
-					:labels ['one 'two 'three]
-					(boxpane :orientation :vert
-						 (checkbox :data "clickA")
-						 (checkbox :data "clickB")
-						 (push-button :data "clickC"))
-					(push-button :data "click -me")
-					(push-button :data "click -you"))))))))
+   (window (boxpane (border (scrollpane 
+                             :preferred-size [100 100]
+                             :column-header (label :text "accordion" {:font ["Arial" :plain 12]})
+                             :view (accordion :preferred-size [60 200]
+                                              (accordion-panel :label 'one 
+                                                               (boxpane :orientation :vert
+                                                                        (checkbox :data "A")
+                                                                        (checkbox :data "B")
+                                                                        (push-button :data "clickC")))
+                                              (accordion-panel :label 'bar
+                                                               (push-button :data "click -me"))
+                                              (accordion-panel :label 'bak 
+                                                               (push-button :data "click -you"))))))))
+
+
+  (show-only (window (border (boxpane 
+                              :preferred-size [200 200]
+                              (form 
+                               (form-section :heading "FOO"
+                                             (form-component :label 'oh
+                                                             (boxpane (push-button :data "foo")
+                                                                      (push-button :data "foo2")))
+                                             (form-component :label 'ah (checkbox :data "bar"))
+                                             (form-component :label 'ih (checkbox :data "baz")))
+                               (form-section :heading "NBAR"
+                                             (form-component :label 'foo (checkbox :data "bar"))
+                                             (form-component :label 'foo (label :text "bar")))
+                               )))))
+
+
+
+  
+  )
