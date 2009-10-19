@@ -504,13 +504,6 @@
       (.add l elem))
     l))
 
-(def __i (gen-interface :name ITestBean1 :methods [[getA [] Object]
-                                                   [getB [] Object]
-                                                   [getC [] Object]
-                                                   [getD [] Object]]))
-hoeck.pivot.ITestBean1
-
-
 (comment
   
   (def __t  (table-view
