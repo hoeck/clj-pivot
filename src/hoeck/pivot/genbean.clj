@@ -51,7 +51,7 @@
 		    :state ~state-name
 		    :init ~init-name
 		    :constructors ~ctors)
-	 (defn ~beaninit
+	 (defn ~(symbol (str "-" init-name))
 	   ([] [[] (atom {})])
 	   ([initial-map#] [[] (atom initial-map#)]))
 	 ~@(map (fn [name key] `(genbean-getter ~state-name ~name ~key)) getter-names key-list)
@@ -65,7 +65,7 @@
   Given keywords/symbols a java-fied: `:key-word-with-dashes' -> getKeyWordWithDashes, setKeyWordWithDashes."
   [qualified-bean-name & keywords]
   `(do (ns ~qualified-bean-name)
-       (genbean-map-atom ~qualified-bean-name beandata# ~keywords)))
+       (genbean-map-atom ~qualified-bean-name ~'beandata ~keywords)))
 
 (comment ;; a simple mutable bean in clojure using genclass structmap and atom
   (ns foo.bar.CljBean

@@ -20,9 +20,10 @@
 				 Button Button$Group PushButton RadioButton Checkbox
                                  TextInput TextArea
                                  ;; tables
-                                 TableView TableViewHeader TableView$SelectMode TableView$Column
+                                 TableView TableViewHeader TableView$SelectMode TableView$Column TableView$CellRenderer
                                  ;; enums, structs
                                  Orientation SortDirection Insets Dimensions VerticalAlignment HorizontalAlignment)
+           
            (org.apache.pivot.wtk.content TableViewBooleanCellRenderer 
                                          TableViewCellRenderer
                                          TableViewDateCellRenderer
@@ -143,14 +144,16 @@
   "Return a TableView$CellRenderer, defaults (= arg nil) to
   one that renders strings."
   [arg]
-  (condp = (or arg :string)
-    :boolean (TableViewBooleanCellRenderer.)
-    :string (TableViewCellRenderer.)
-    :date (TableViewDateCellRenderer.)
-    :filesize (TableViewFileSizeCellRenderer.)
-    :image (TableViewImageCellRenderer.)
-    :multi (TableViewMultiCellRenderer.)
-    :number (TableViewNumberCellRenderer.)))
+  (if (or (nil? arg) (keyword? arg))
+    (condp = (or arg :string)
+      :boolean (TableViewBooleanCellRenderer.)
+      :string (TableViewCellRenderer.)
+      :date (TableViewDateCellRenderer.)
+      :filesize (TableViewFileSizeCellRenderer.)
+      :image (TableViewImageCellRenderer.)
+      :multi (TableViewMultiCellRenderer.)
+      :number (TableViewNumberCellRenderer.))
+    arg))
 
 (defn make-table-view-editor [key]
   (condp = key
@@ -432,7 +435,6 @@
       :text (.setText ta (str it))
       :text-key (.setTextKey ta (str it)))))
 
-
 ;; tables
 
 (def-component-ctor table-view [args style components] ;; actually, components are TableView$Columns
@@ -461,6 +463,7 @@
       :relative (.setWidth tv (.getWidth tv) it))
     tv))
 
+
 ;;http://mail-archives.apache.org/mod_mbox/incubator-pivot-user/200909.mbox/%3C168ef9ac0909080333u7113b048wd5601d87d0c34804@mail.gmail.com%3E
 ;;> Can I invoke the editor in my code rather than relying on a double click to
 ;;> invoke it? For example I might have an "Edit" button.
@@ -469,6 +472,12 @@
 ;;tableView.getSelectedIndex(), columnIndex) to initiate an edit on the
 ;;selected row at whatever column index you choose.
 
+
+(def-component-ctor table-view-header [args style]
+  (with-component [tvh TableViewHeader]
+    (cond-call-it args
+      :table-view (.setTableView tvh it)
+      :data-renderer (.setDataRenderer tvh it))))
 
 ;; buttons
 
@@ -498,24 +507,94 @@
 ;;(show-only (window (label :self (Label.) :text "Hallo YOU" {:font ["Arial" :bold 70]})))
 
 
+;; implementing the render interface
+
+(defn make-cell-renderer
+  "Returns a TableView$CellRenderer implemented through the render-f function.
+  Calling render-f without an argument should return a component (i.e. a Label)
+  which is used to render data cells.
+  Upon rendering, render-f is called with a map of arguments:
+    :component :value :table-view :column 
+    :row-selected? :row-highlighted? :row-disabled?
+  and should set the given :component according to its needs, eg:
+    (when row-highlighted? (label :self (:component args) :font [\"Arial\" :bold 12]))."
+  [render-f]
+  (let [component (render-f)]
+    (proxy [TableView$CellRenderer] []
+      ;; TableView$CellRenderer
+      ;;void render(Object value, TableView tableView, TableView.Column column, boolean rowSelected, boolean rowHighlighted, boolean rowDisabled) 
+      (render [value, table-view, table-view-column, row-selected?, row-highlighted?, row-disabled?]
+              (render-f {:component component
+                         :value value
+                         :table-view table-view
+                         :column table-view-column
+                         :row-selected? row-selected?
+                         :row-highlighted? row-highlighted?
+                         :row-disabled? row-disabled?})
+              nil)
+      ;; Renderer   
+      ;;Dictionary<String,Object> getStyles() Returns the renderer's style dictionary.
+      (getStyles [] (.getStyles component)) 
+      ;; ConstrainedVisual    
+      ;;int getPreferredHeight(int width) Returns the visual's preferred height given the provided width constraint.
+      (getPreferredHeight [width] (.getPreferredHeight component width))
+      ;;Dimensions getPreferredSize() Returns the visual's unconstrained preferred size.
+      (getPreferredSize [] (.getPreferredSize component))
+      ;;int getPreferredWidth(int height) Returns the visual's preferred width given the provided height constraint.
+      (getPreferredWidth [] (.getPreferredWidth component))
+      ;;void setSize(int width, int height) Sets the visual's render size.
+      (setSize [width height] (.setSize component width height))
+      ;; Visual
+      ;;int getHeight() Returns the visual's height.
+      (getHeight [] (.getHeight component))
+      ;;int getWidth() Returns the visual's width.
+      (getWidth [] (.getWidth component))
+      ;;void paint(Graphics2D graphics) Paints the visual.
+      (paint [graphics] (.paint component graphics)))))
+
+;; implementing the roweditor interface
+
+(defn make-row-editor
+  ""
+  []
+  )
+
 (defn make-list [s]
   (let [l (org.apache.pivot.collections.LinkedList.)]
     (doseq [elem s]
       (.add l elem))
     l))
 
-(comment
-  
-  (def __t  (table-view
-             :preferred-size [200 400]
-             :data (make-list {:a 1 :b 2 :c 3 :d 4})
-             (table-view-column :name 'a)
-             (table-view-column :name 'b)
-             (table-view-column :name 'c)
-             (table-view-column :name 'd)))
-  (show-only (window __t :maximized true))
-  (.add (.getTableData __t) (Object.))
 
+(comment
+  (import (hoeck.pivot testBean))
+  (.getName (testBean. {:name 'e :city-code 11 :mobile-phone-number 999884}))
+  (def __t  (table-view
+             :preferred-size [400 400]
+             :row-editor :cell
+             :data (make-list (list (testBean. {:name 'a :city-code 16 :mobile-phone-number 123})
+                                    (testBean. {:name 'b :city-code 15 :mobile-phone-number 2})
+                                    (testBean. {:name 'c :city-code 14 :mobile-phone-number 222223})
+                                    (testBean. {:name 'd :city-code 13 :mobile-phone-number 9876})
+                                    (testBean. {:name 'e :city-code 11 :mobile-phone-number 999884})))             
+             (table-view-column :name 'name :header-data "Name")
+             (table-view-column :name 'cityCode 
+                                :header-data "Code"
+                                :cell-renderer (make-cell-renderer (fn ([] (PushButton.))
+                                                                     ([opts] (.setButtonData (:component opts) "Foo")))))
+             (table-view-column :name 'mobilePhoneNumber :header-data "Mobile")))
+  ;; table-view with header:
+  (show-only (window :maximized true
+                     (scrollpane :column-header (table-view-header :preferred-size [400 20]
+                                                                   :table-view __t)
+                                 :view __t)))
+
+  (.getRowEditor (.get (.getColumns __t) 0))
+  (.setHeaderData (.get (.getColumns __t) 0) data)
+  (seq (.getStyles (table-view-header)))
+  (table-view :self __t :preferred-size [400 400]) ;; alters existing table view
+
+  ;; form:
   (show-only (window (form :preferred-size [200 300]
                            (form-section :header "foo" 
                                          (form-component :label 'name (text-input :prompt 'vorname))
@@ -530,6 +609,8 @@
                                                                                :preferred-size [100 100]
                                                                                (text-area;;:preferred-size [100 100]
                                                                                 :text "FOOOOOO"))))))))
+
+  ;; splitpane
   (show-only (window (boxpane 
                       (splitpane
                        :preferred-size [300 200]
@@ -538,6 +619,8 @@
                        :split-ratio 0.9
                        :top-left (push-button :data "foobar")
                        :bottom-right (push-button :data "bakbaz")))))
+
+  ;; accordion
   (show-only
    (window (boxpane (border (scrollpane 
                              :preferred-size [100 100]
@@ -553,7 +636,7 @@
                                               (accordion-panel :label 'bak 
                                                                (push-button :data "click -you"))))))))
 
-
+  ;; form
   (show-only (window (border (boxpane 
                               :preferred-size [200 200]
                               (form 
