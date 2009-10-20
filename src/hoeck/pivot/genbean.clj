@@ -22,11 +22,11 @@
     [getters setters]))
 
 (defmacro genbean-getter [struct-state-var-name getter-name key]
-  `(defn ~(symbol (str "-" getter-name)) [this#]
+  `(defn ~(symbol getter-name) [this#]
      (get @(. this# ~struct-state-var-name) ~key)))
 
 (defmacro genbean-setter [struct-state-var-name setter-name key]
-  `(defn ~(symbol (str "-" setter-name)) [this# o#]
+  `(defn ~(symbol setter-name) [this# o#]
      (swap! (. this# ~struct-state-var-name)
             assoc ~key o#)
      nil))
@@ -38,34 +38,28 @@
   `[~name [Object] Void])
 
 (defmacro genbean-map-atom
-  "Generate a map, atom based mutable java bean using genclass."
-  [bean-name state-name key-list]
+  "Generate a map, atom based mutable java bean using genclass. Use the lowercased classname as a prefix for
+  the method implementations to allow more than one bean safely defined in one Namespace."
+  [bean-name & key-list]
   (let [[getter-names setter-names] (genbean-stuff key-list)
         method-signatures (vec (concat (map make-getter-sig getter-names)
                                        (map make-setter-sig setter-names)))
         ctors `{[clojure.lang.IPersistentMap] []
 		[] []}
-        init-name 'beaninit]
+        init-name 'beaninit
+	state-name 'beanstate
+	prefix (str (last (.split (.toLowerCase (str bean-name)) "\\.")) "-")]
     `(do (gen-class :name ~bean-name
 		    :methods ~method-signatures
 		    :state ~state-name
 		    :init ~init-name
+		    :prefix ~prefix
 		    :constructors ~ctors)
-	 (defn ~(symbol (str "-" init-name))
+	 (defn ~(symbol (str prefix init-name))
 	   ([] [[] (atom {})])
 	   ([initial-map#] [[] (atom initial-map#)]))
-	 ~@(map (fn [name key] `(genbean-getter ~state-name ~name ~key)) getter-names key-list)
-	 ~@(map (fn [name key] `(genbean-setter ~state-name ~name ~key)) setter-names key-list))))
-
-
-(defmacro ns-genbean
-  "Generate a mutable bean implementation with the given keys as fields using a clojure
-  map and an atom to allow a threadsafe mutation.
-  The generated bean uses effectively untyped getters and setters (Object getXXX() and void setXXX(Obect o)).
-  Given keywords/symbols a java-fied: `:key-word-with-dashes' -> getKeyWordWithDashes, setKeyWordWithDashes."
-  [qualified-bean-name & keywords]
-  `(do (ns ~qualified-bean-name)
-       (genbean-map-atom ~qualified-bean-name ~'beandata ~keywords)))
+	 ~@(map (fn [name key] `(genbean-getter ~state-name ~(str prefix name) ~key)) getter-names key-list)
+	 ~@(map (fn [name key] `(genbean-setter ~state-name ~(str prefix name) ~key)) setter-names key-list))))
 
 (comment ;; a simple mutable bean in clojure using genclass structmap and atom
   (ns foo.bar.CljBean
@@ -95,7 +89,14 @@
     (swap! (. this beandata) assoc :city-code o)
     nil)
 
-  -> (hoeck.pivot.genbean/ns-genbean foo.bar.CljBean :name :city-code)
+  -> (hoeck.pivot.genbean/ns-genbean foo.bar.CljBean :name :city-code) or
+
+  (ns 'foo.bar.Baz
+    (:use hoeck.pivot.genbean))
+
+  ... code ...
+  
+  (genbean-map-atom foo.bar.MyBean :name :city-code)
 
 
   )

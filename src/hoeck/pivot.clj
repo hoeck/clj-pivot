@@ -3,7 +3,9 @@
   (:use clojure.contrib.pprint
 	clojure.contrib.prxml
 	clojure.contrib.duck-streams
-        clojure.contrib.except)
+        clojure.contrib.except
+
+	hoeck.pivot.datastructures)
   (:require [hoeck.pivot.Application :as app]
 	    [clojure.xml :as xml])
   (:import (org.apache.pivot.wtk DesktopApplicationContext Application Display
@@ -36,7 +38,7 @@
            (org.apache.pivot.wtk.text.validation Validator)
            (org.apache.pivot.util Filter)
 	   (org.apache.pivot.wtkx WTKXSerializer)
-	   (org.apache.pivot.collections Map)
+	   (org.apache.pivot.collections Map Dictionary)
 	   (java.awt Color Font)
 	   (java.net URL)))
 
@@ -57,11 +59,6 @@
     :top VerticalAlignment/TOP
     :center VerticalAlignment/CENTER
     :bottom VerticalAlignment/BOTTOM))
-
-(defn dictionary->hashmap
-  "Converts a dictionary into a clojure hashmap."
-  [d]
-  (into {} (map #(vector % (.get d %)) (seq d))))
 
 (defn make-insets [[top left bottom right]]
   (Insets. top left bottom right))
@@ -559,39 +556,36 @@
   []
   )
 
-(defn make-list [s]
-  (let [l (org.apache.pivot.collections.LinkedList.)]
-    (doseq [elem s]
-      (.add l elem))
-    l))
-
 
 (comment
-  (import (hoeck.pivot testBean))
-  (.getName (testBean. {:name 'e :city-code 11 :mobile-phone-number 999884}))
+
   (def __t  (table-view
-             :preferred-size [400 400]
+             ;;:preferred-size [400 400]
              :row-editor :cell
-             :data (make-list (list (testBean. {:name 'a :city-code 16 :mobile-phone-number 123})
-                                    (testBean. {:name 'b :city-code 15 :mobile-phone-number 2})
-                                    (testBean. {:name 'c :city-code 14 :mobile-phone-number 222223})
-                                    (testBean. {:name 'd :city-code 13 :mobile-phone-number 9876})
-                                    (testBean. {:name 'e :city-code 11 :mobile-phone-number 999884})))             
-             (table-view-column :name 'name :header-data "Name")
-             (table-view-column :name 'cityCode 
+             :data (make-dictionary-list '#{{:name erik :city Frankfurt :mobile-phone-number dontknow}
+					    {:name frank :city Berlin :mobile-phone-number any}
+					    {:name martin :city Prag :mobile-phone-number 0}})
+             (table-view-column :name :name 
+				:header-data "Name")
+             (table-view-column :name :city
                                 :header-data "Code"
-                                :cell-renderer (make-cell-renderer (fn ([] (PushButton.))
-                                                                     ([opts] (.setButtonData (:component opts) "Foo")))))
-             (table-view-column :name 'mobilePhoneNumber :header-data "Mobile")))
+                                :cell-renderer (make-cell-renderer 
+						(fn ([] (PushButton.))
+						  ([opts]
+						     (let [v (:value opts) 
+							   name (if v (.get v :name) 'null)
+							   code (if v (.get v :city) 'null)]
+						       (.setButtonData (:component opts) 
+								       (str "call " name " in " code)))))))
+             (table-view-column :name :mobile-phone-number
+				:header-data "Mobile")))
+
   ;; table-view with header:
   (show-only (window :maximized true
                      (scrollpane :column-header (table-view-header :preferred-size [400 20]
                                                                    :table-view __t)
                                  :view __t)))
 
-  (.getRowEditor (.get (.getColumns __t) 0))
-  (.setHeaderData (.get (.getColumns __t) 0) data)
-  (seq (.getStyles (table-view-header)))
   (table-view :self __t :preferred-size [400 400]) ;; alters existing table view
 
   ;; form:

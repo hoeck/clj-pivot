@@ -21,7 +21,10 @@
 
 (comment
   (require 'hoeck.pivot.Application :reload)
-  (binding [*compile-path* "/home/timmy-turner/clj/clj-pivot/classes"]
+  (binding [*compile-path*
+	    "d:/clj/clj-pivot/classes"
+	    ;;"/home/timmy-turner/clj/clj-pivot/classes"
+	    ]
     (compile (ns-name *ns*)))
   )
 
