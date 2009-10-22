@@ -39,7 +39,7 @@
   (make-list (map make-dictionary R)))
 
 (defn dictionary->hashmap
-  "Return a clojure hashmap from a pivot dictionary."
+  "Return a clojure hashmap from a pivot dictionary. Translate keys from Strings to keywords/symbols."
   [d]
   (reduce (fn [m k]
 	    (assoc m (clj-key k) (.get d k)))

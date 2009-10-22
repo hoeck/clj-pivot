@@ -18,10 +18,12 @@
 				 ScrollPane ScrollPane$ScrollBarPolicy Panorama
                                  StackPane Frame Viewport TablePane Panel FlowPane CardPane
                                  MovieView
-                                 ;; components
+				 ;; buttons
+				 Button Button$Group PushButton RadioButton
+				 Checkbox LinkButton
+                                 ;; other components
                                  Component 
                                  Label Slider
-				 Button Button$Group PushButton RadioButton Checkbox LinkButton
                                  TextInput TextArea                                 
                                  FileBrowser FileBrowserSheet
                                  Calendar CalendarButton
@@ -37,9 +39,12 @@
                                  ;; menu
                                  Menu MenuBar MenuButton Menu$Item MenuPopup
                                  ;; tables
-                                 TableView TableViewHeader TableView$SelectMode TableView$Column TableView$CellRenderer TableView$RowEditor
+                                 TableView TableViewHeader
+				 TableView$SelectMode TableView$Column
+				 TableView$CellRenderer TableView$RowEditor
                                  ;; enums, structs
-                                 Orientation SortDirection Insets Dimensions VerticalAlignment HorizontalAlignment)
+                                 Orientation SortDirection Insets
+				 Dimensions VerticalAlignment HorizontalAlignment)
            
            (org.apache.pivot.wtk.content TableViewBooleanCellRenderer 
                                          TableViewCellRenderer
@@ -91,6 +96,7 @@
     :plain Font/PLAIN
     :bold Font/BOLD))
 
+;; a map of style-keywords to [styleStringKey function]
 (def style-setters 
      {:padding ["padding" make-insets]
       :vert-align ["verticalAlignment" get-vert-align]
@@ -105,13 +111,22 @@
       :font ["font" (fn [[name style size]] (Font. name (get-font-style style) size))]})
 
 (defn set-styles
-  "set the style of a component"
+  "set the style of a component using style-setters to translate requests to pivot."
   [component style-map]
   (let [sd (.getStyles component)]
     (doseq [[k v] style-map]
       (let [[key f] (style-setters k)]
         (.put sd key (f v))))
     component))
+
+(defn set-user-data
+  "put the contants of the (clojure-hashmap) user-data-map 
+  into the userdata dictionary of component."
+  [component user-data-map]
+  (let [u (.getUserData component)]
+    (doseq [[k v] user-data-map]
+      (.put u (str k) v))
+    u))
 
 (defn get-orientation [keyword]
   (condp = keyword 
@@ -224,10 +239,14 @@
 ;; table-view roweditors
 
 (defn make-row-editor
-  ""
+  "Returns a TableView$RowEditor implemented through the edit-f function.
+  Upon an edit request, edit-f is called with 3 arguments:
+    table-view, row-index, column-index
+  and should do whatever possible to edit the given cell at the given
+  indices, e.g.: open a popup with a component (TextInput ..) in it."
   [edit-f]
   (proxy [TableView$RowEditor] []
-    (edit [table-view, row-index, int column-index]
+    (edit [table-view, row-index, column-index]
           (edit-f table-view row-index column-index))
     ;; Cancels an edit that is in progress by reverting any edits the user has made. void
     (cancel [] (edit-f :cancel))
@@ -237,11 +256,15 @@
     (save [] (edit-f :save))))
 
 (defn make-table-view-editor
-  "return a TableView$RowEditor"
-  [key]
-  (condp = key
-    :row (TableViewRowEditor.)
-    :cell (TableViewCellEditor.)))
+  "return a TableView$RowEditor either a default one (arg is :row or :cell)
+   or a custom one where arg is function implementing the editor-interface,
+   see `make-row-editor'."
+  [arg]
+  (if (keyword? arg)
+    (condp = key
+      :row (TableViewRowEditor.)
+      :cell (TableViewCellEditor.))
+    (make-row-editor)))
 
 ;; tools for component constructors
 
@@ -299,22 +322,6 @@
 		     ~expr)))
 	      (partition 2 clauses)))))
 
-(defn default-component-arg-handler
-  "handler for common component args, returns comp"
-  [comp args]
-  (cond-call-it args
-    :enabled (.setEnabled comp it)
-    :height (.setHeight comp it)
-    :width (.setWidth comp it)
-    :preferred-width (if (vector? it) 
-		       (let [[min max] it] (.setPreferredWidthLimits comp min max))
-		       (.setPreferredWidth comp it))
-    :preferred-height (if (vector? it)
-			(let [[min max] it] (.setPreferredHeightLimits comp min max))
-			(.setPreferredHeight comp it))
-    :preferred-size (let [[x y] it] (.setPreferredSize comp x y)))
-  comp)
-
 (defmacro with-component
   "For use with in the def-component-ctor macro. Requires `args' and `styles'
   to be bound to the keyargs and styles maps. Executes body with in a component
@@ -330,6 +337,87 @@
      ~@body
      ~component-name))
 
+
+;; Component Properties
+
+(def property-definition-map {})
+
+(defmacro defproperties
+  "Define properties of an object and setter and getter expressions
+     :key setter getter docstring
+  If there is no getter for a value, use nil, if there is no setter fo
+  a value, use (throwf \"why?\") which throws an exception when someone tries
+  to use it."
+  [type [varname] & properties]
+  `(alter-var-root (resolve 'property-definition-map) assoc ~type
+		   ~(into {} (map (fn [[key setter getter doc]]
+				    [key `{:setter (fn [~varname ~'it] ~setter)
+					   :getter (fn [~varname] ~getter)
+					   :doc ~doc}])
+				  (partition 4 properties)))))
+
+(defn get-all-property-defs
+  "Return a map of property definitions for a given object o."
+  [o]
+  (let [types (conj (supers (type o)) (type o))]
+    (apply merge (map property-definition-map types))))
+
+(defn set-properties
+  "Set properties of object known as name to values found in the prop hashmap"  
+  ([o props]
+     (let [p (get-all-property-defs o)
+	   get-setter #(get-in p [% :setter])]
+       (doseq [[k v] props]
+	 (if-let [s (get-setter k)]
+	   (s o v)
+	   (throwf "Unknown property %s for object %s" k o))))))
+
+(defn get-properties
+  "Return all known properties of an object"
+  [o]
+  (let [p (get-all-property-defs o)]
+    (into {} (map (fn [[k {:keys [getter]}]]
+		    (when getter [k (getter o)]))
+		  p))))
+
+
+(defproperties Component [c]
+  :enabled (.setEnabled c it) (.isEnabled c) "Enabled status."
+  :height (.setHeight c it) (.getHeight c) "Height"
+  :width (.setWidth c it) (.getWidth c) "Width"
+  
+  :preferred-width
+  (if (vector? it) 
+    (let [[min max] it] (.setPreferredWidthLimits c min max))
+    (.setPreferredWidth c it))
+  nil
+  "Set the preferred width of the Component. Can be a single number or a vector of [min max]."
+  
+  :preferred-height
+  (if (vector? it)
+    (let [[min max] it] (.setPreferredHeightLimits c min max))
+    (.setPreferredHeight c it))
+  nil
+  "Set the preferred height of the Component. Can be a single number or a vector of [min max]."
+
+  :preferred-size
+  (let [[x y] it] (.setPreferredSize c x y))
+  nil
+  "Preferred size of the component, a vector of [width height]"
+
+  :styles (set-styles c it) (dictionary->hashmap (.getStyles c)) "A map of styles for the component."
+
+  :user (set-user-data c it) (dictionary->hashmap (.getUserData c)) "Userdata of Component, a clojure hashmap.")
+
+
+(defproperties Window [w]
+  :maximized (.setMaximized w it) (.isMaximized w) "when true, maximize window over the whole display"
+  :visible (.setVisible w it) (.isVisible w) "hide window when false"
+  :title (.setTitle w (str it)) (.getTitle w) "the windows title"
+  :icon (.setIcon w (get-icon it)) (.getIcon w) "the windows icon, a keyword or an Image object.")
+
+(defcontainer window [args components])
+  
 ;; containers
 
 (def-component-ctor window [args style components]

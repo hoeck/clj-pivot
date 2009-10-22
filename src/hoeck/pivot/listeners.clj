@@ -2,108 +2,44 @@
 (ns hoeck.pivot.listeners
   (:use clojure.contrib.pprint
         clojure.contrib.except)
-  (:import (org.apache.pivot.wtk AccordionAttributeListener
-                                 AccordionListener
-                                 AccordionSelectionListener
-                                 ActionClassListener
-                                 ActionListener
-                                 ActivityIndicatorListener
-                                 AlertListener
-                                 BorderListener
-                                 BoxPaneListener
-                                 Button$GroupListener
-                                 Button$NamedGroupDictionaryListener
-                                 ButtonListener
-                                 ButtonPressListener
-                                 ButtonStateListener
-                                 CalendarButtonListener
-                                 CalendarButtonSelectionListener
-                                 CalendarListener
-                                 CalendarSelectionListener
-                                 CardPaneListener
-                                 ClipboardContentListener
-                                 ComponentClassListener
-                                 ComponentDataListener
-                                 ComponentDecoratorListener
-                                 ComponentKeyListener
-                                 ComponentListener
-                                 ComponentMouseButtonListener
-                                 ComponentMouseListener
-                                 ComponentMouseWheelListener
-                                 ComponentStateListener
-                                 ContainerListener
-                                 ContainerMouseListener
-                                 DialogCloseListener
-                                 DialogStateListener
-                                 ExpanderListener
-                                 FileBrowserListener
-                                 FileBrowserSheetListener
-                                 FormAttributeListener
-                                 FormListener
-                                 FrameListener
-                                 ImageViewListener
-                                 LabelListener
-                                 ListButtonListener
-                                 ListButtonSelectionListener
-                                 ListViewItemListener
-                                 ListViewItemStateListener
-                                 ListViewListener
-                                 ListViewSelectionListener
-                                 Menu$ItemListener
-                                 Menu$SectionListener
-                                 MenuBar$ItemListener
-                                 MenuBarListener
-                                 MenuButtonListener
-                                 MenuItemSelectionListener
-                                 MenuListener
-                                 MenuPopupListener
-                                 MenuPopupStateListener
-                                 MeterListener
-                                 MovieViewListener
-                                 PromptListener
-                                 RollupListener
-                                 RollupStateListener
-                                 ScrollBarListener
-                                 ScrollBarValueListener
-                                 ScrollPaneListener
-                                 SeparatorListener
-                                 SheetCloseListener
-                                 SheetStateListener
-                                 SliderListener
-                                 SliderValueListener
-                                 SpinnerItemListener
-                                 SpinnerListener
-                                 SpinnerSelectionListener
-                                 SplitPaneListener
-                                 TablePaneAttributeListener
-                                 TablePaneListener
-                                 TableViewColumnListener
-                                 TableViewHeaderListener
-                                 TableViewHeaderPressListener
-                                 TableViewListener
-                                 TableViewRowListener
-                                 TableViewSelectionListener
-                                 TabPaneAttributeListener
-                                 TabPaneListener
-                                 TabPaneSelectionListener
-                                 TextAreaCharacterListener
-                                 TextAreaListener
-                                 TextAreaSelectionListener
-                                 TextInputCharacterListener
-                                 TextInputListener
-                                 TextInputSelectionListener
-                                 TextInputTextListener
-                                 TooltipListener
-                                 TreeViewBranchListener
-                                 TreeViewListener
-                                 TreeViewNodeListener
-                                 TreeViewNodeStateListener
-                                 TreeViewSelectionListener
-                                 ViewportListener
-                                 WindowActionMappingListener
-                                 WindowClassListener
-                                 WindowListener
-                                 WindowStateListener)
+  (:import (org.apache.pivot.wtk ;; Listeners
+	    AccordionAttributeListener AccordionListener
+	    AccordionSelectionListener ActionClassListener ActionListener
+	    ActivityIndicatorListener AlertListener BorderListener
+	    BoxPaneListener Button$GroupListener
+	    Button$NamedGroupDictionaryListener ButtonListener
+	    ButtonPressListener ButtonStateListener CalendarButtonListener
+	    CalendarButtonSelectionListener CalendarListener
+	    CalendarSelectionListener CardPaneListener ClipboardContentListener
+	    ComponentClassListener ComponentDataListener
+	    ComponentDecoratorListener ComponentKeyListener ComponentListener
+	    ComponentMouseButtonListener ComponentMouseListener
+	    ComponentMouseWheelListener ComponentStateListener ContainerListener
+	    ContainerMouseListener DialogCloseListener DialogStateListener
+	    ExpanderListener FileBrowserListener FileBrowserSheetListener
+	    FormAttributeListener FormListener FrameListener ImageViewListener
+	    LabelListener ListButtonListener ListButtonSelectionListener
+	    ListViewItemListener ListViewItemStateListener ListViewListener
+	    ListViewSelectionListener Menu$ItemListener Menu$SectionListener
+	    MenuBar$ItemListener MenuBarListener MenuButtonListener
+	    MenuItemSelectionListener MenuListener MenuPopupListener
+	    MenuPopupStateListener MeterListener MovieViewListener PromptListener
+	    RollupListener RollupStateListener ScrollBarListener
+	    ScrollBarValueListener ScrollPaneListener SeparatorListener
+	    SheetCloseListener SheetStateListener SliderListener
+	    SliderValueListener SpinnerItemListener SpinnerListener
+	    SpinnerSelectionListener SplitPaneListener TabPaneAttributeListener
+	    TabPaneListener TabPaneSelectionListener TablePaneAttributeListener
+	    TablePaneListener TableViewColumnListener TableViewHeaderListener
+	    TableViewHeaderPressListener TableViewListener TableViewRowListener
+	    TableViewSelectionListener TextAreaCharacterListener TextAreaListener
+	    TextAreaSelectionListener TextInputCharacterListener
+	    TextInputListener TextInputSelectionListener TextInputTextListener
+	    TooltipListener TreeViewBranchListener TreeViewListener
+	    TreeViewNodeListener TreeViewNodeStateListener
+	    TreeViewSelectionListener ViewportListener
+	    WindowActionMappingListener WindowClassListener WindowListener
+	    WindowStateListener)
            (org.apache.pivot.collections FilteredListListener
                                          ListListener
                                          MapListener
@@ -113,109 +49,44 @@
                                          StackListener)
            (org.apache.pivot.util ListenerList)))
 
-(def listeners [;; org.apache.pivot.wtk.*
-                AccordionAttributeListener
-                AccordionListener
-                AccordionSelectionListener
-                ActionClassListener
-                ActionListener
-                ActivityIndicatorListener
-                AlertListener
-                BorderListener
-                BoxPaneListener
-                Button$GroupListener
-                Button$NamedGroupDictionaryListener
-                ButtonListener
-                ButtonPressListener
-                ButtonStateListener
-                CalendarButtonListener
-                CalendarButtonSelectionListener
-                CalendarListener
-                CalendarSelectionListener
-                CardPaneListener
-                ClipboardContentListener
-                ComponentClassListener
-                ComponentDataListener
-                ComponentDecoratorListener
-                ComponentKeyListener
-                ComponentListener
-                ComponentMouseButtonListener
-                ComponentMouseListener
-                ComponentMouseWheelListener
-                ComponentStateListener
-                ContainerListener
-                ContainerMouseListener
-                DialogCloseListener
-                DialogStateListener
-                ExpanderListener
-                FileBrowserListener
-                FileBrowserSheetListener
-                FormAttributeListener
-                FormListener
-                FrameListener
-                ImageViewListener
-                LabelListener
-                ListButtonListener
-                ListButtonSelectionListener
-                ListViewItemListener
-                ListViewItemStateListener
-                ListViewListener
-                ListViewSelectionListener
-                Menu$ItemListener
-                Menu$SectionListener
-                MenuBar$ItemListener
-                MenuBarListener
-                MenuButtonListener
-                MenuItemSelectionListener
-                MenuListener
-                MenuPopupListener
-                MenuPopupStateListener
-                MeterListener
-                MovieViewListener
-                PromptListener
-                RollupListener
-                RollupStateListener
-                ScrollBarListener
-                ScrollBarValueListener
-                ScrollPaneListener
-                SeparatorListener
-                SheetCloseListener
-                SheetStateListener
-                SliderListener
-                SliderValueListener
-                SpinnerItemListener
-                SpinnerListener
-                SpinnerSelectionListener
-                SplitPaneListener
-                TablePaneAttributeListener
-                TablePaneListener
-                TableViewColumnListener
-                TableViewHeaderListener
-                TableViewHeaderPressListener
-                TableViewListener
-                TableViewRowListener
-                TableViewSelectionListener
-                TabPaneAttributeListener
-                TabPaneListener
-                TabPaneSelectionListener
-                TextAreaCharacterListener
-                TextAreaListener
-                TextAreaSelectionListener
-                TextInputCharacterListener
-                TextInputListener
-                TextInputSelectionListener
-                TextInputTextListener
-                TooltipListener
-                TreeViewBranchListener
-                TreeViewListener
-                TreeViewNodeListener
-                TreeViewNodeStateListener
-                TreeViewSelectionListener
-                ViewportListener
-                WindowActionMappingListener
-                WindowClassListener
-                WindowListener
-                WindowStateListener
+(def listeners [;; org.apache.pivot.wtk.*		
+		AccordionAttributeListener AccordionListener
+		AccordionSelectionListener ActionClassListener ActionListener
+		ActivityIndicatorListener AlertListener BorderListener
+		BoxPaneListener Button$GroupListener
+		Button$NamedGroupDictionaryListener ButtonListener
+		ButtonPressListener ButtonStateListener CalendarButtonListener
+		CalendarButtonSelectionListener CalendarListener
+		CalendarSelectionListener CardPaneListener ClipboardContentListener
+		ComponentClassListener ComponentDataListener
+		ComponentDecoratorListener ComponentKeyListener ComponentListener
+		ComponentMouseButtonListener ComponentMouseListener
+		ComponentMouseWheelListener ComponentStateListener ContainerListener
+		ContainerMouseListener DialogCloseListener DialogStateListener
+		ExpanderListener FileBrowserListener FileBrowserSheetListener
+		FormAttributeListener FormListener FrameListener ImageViewListener
+		LabelListener ListButtonListener ListButtonSelectionListener
+		ListViewItemListener ListViewItemStateListener ListViewListener
+		ListViewSelectionListener Menu$ItemListener Menu$SectionListener
+		MenuBar$ItemListener MenuBarListener MenuButtonListener
+		MenuItemSelectionListener MenuListener MenuPopupListener
+		MenuPopupStateListener MeterListener MovieViewListener PromptListener
+		RollupListener RollupStateListener ScrollBarListener
+		ScrollBarValueListener ScrollPaneListener SeparatorListener
+		SheetCloseListener SheetStateListener SliderListener
+		SliderValueListener SpinnerItemListener SpinnerListener
+		SpinnerSelectionListener SplitPaneListener TabPaneAttributeListener
+		TabPaneListener TabPaneSelectionListener TablePaneAttributeListener
+		TablePaneListener TableViewColumnListener TableViewHeaderListener
+		TableViewHeaderPressListener TableViewListener TableViewRowListener
+		TableViewSelectionListener TextAreaCharacterListener TextAreaListener
+		TextAreaSelectionListener TextInputCharacterListener
+		TextInputListener TextInputSelectionListener TextInputTextListener
+		TooltipListener TreeViewBranchListener TreeViewListener
+		TreeViewNodeListener TreeViewNodeStateListener
+		TreeViewSelectionListener ViewportListener
+		WindowActionMappingListener WindowClassListener WindowListener
+		WindowStateListener
                 ;; org.apache.pivot.collections.*
                 FilteredListListener
                 ListListener
@@ -223,8 +94,7 @@
                 MapListListener
                 QueueListener
                 SetListener
-                StackListener]) 
-
+                StackListener])
 
 ;; listeners: construction
 

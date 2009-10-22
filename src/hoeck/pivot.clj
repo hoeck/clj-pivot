@@ -8,8 +8,8 @@
 	hoeck.pivot.datastructures
         hoeck.pivot.components
         hoeck.pivot.listeners)
-  (:require [hoeck.pivot.Application :as app]))
-
+  (:require [hoeck.pivot.Application :as app])
+  (:import (org.apache.pivot.wtk DesktopApplicationContext)))
 
 (def appstate (agent {}))
 
@@ -26,8 +26,24 @@
   (DesktopApplicationContext/main hoeck.pivot.Application, (into-array String ())))
 
 
+;;DesktopApplicationContext/queueCallback(Runnable callback) 
 
 (comment
+  (start-pivot)
+  
+  (defn make-accordion-menu []
+    (accordion :preferred-size [60 200]
+	       (accordion-panel :label 'one 
+				(boxpane :orientation :vert
+					 (checkbox :data "A")
+					 (checkbox :data "B")
+					 (push-button :data "clickC")))
+	       (accordion-panel :label 'bar
+				(push-button :data "click -me"))
+	       (accordion-panel :label 'bak 
+				(push-button :data "click -you"))))
+
+
   ;; playground
   (def __t  (table-view
              ;;:preferred-size [400 400]
