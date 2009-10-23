@@ -434,11 +434,13 @@
   [var o & arglist-spec]
   (alter-meta! (resolve var)
                assoc
-               :doc (str "Returns a new or existing (given with :self) " (type o) " with the given properties set" \newline (doc-properties o))
+               :doc (str "Returns a new or existing (given with :self) "
+			 (type o) " with the given properties set" \newline
+			 (doc-properties o))
                :arglists (if (= [:keys] arglist-spec)
                            (list (vec (keys (get-properties o))))
                            (if (= (first arglist-spec) :keys)
-                             (vec (concat (keys (get-properties o)) (second arglist-spec)))
+                             (vec (concat (keys (get-properties o)) (next arglist-spec)))
                              (vec arglist-spec)))))
 
 (defmacro when-it
@@ -490,7 +492,8 @@
 (defcomponent window [args [component]]
   (with-component [w Window] 
     (when-it component (.setContent w it))))
-(set-documentation 'window (Window.) :keys '[component])
+
+(set-documentation 'window (Window.) :keys 'component)
 
 
 (defproperties BoxPane [b]
@@ -501,6 +504,8 @@
   (with-component [b BoxPane]
     (doseq [c components] (.add b c))))
 
+(set-documentation 'boxpane (BoxPane.) :keys '& 'components)
+(set-documentation 'boxpane (BoxPane.) :keys '& 'components)
 
 (defproperties Border [b]
   :title (.setTitle b (str it)) (.getTitle b) "The borders title.")
@@ -508,6 +513,8 @@
 (defcomponent border [args [component]]
   (with-component [b Border]
     (when-it component (.setContent b it))))
+
+(set-documentation 'border (Border.) :keys 'component)
 
 
 (defproperties Accordion [a]
@@ -525,12 +532,23 @@
     (when-it (:icon args) (Accordion/setIcon component (get-icon it)))
     component))
 
+(set-documentation 'accordion (Accordion.) :keys '& 'accordion-panels)
+(alter-meta! #'accordion-panel assoc :doc
+	     (str "create a accordion-panel closure to add to hold a single component shown in an accordion." \newline
+		  "  :label .. the label of the accordion panel" \newline
+		  "  :icon  .. if set appears in front of the label.")
+	     :arglists '([:label :icon :self component]))
+
+
 (defproperties CardPane [c]
   :selected-index (.setSelectedIndex c it) (.getSelectedIndex c) "the index of the selected (== shown) component")
 
 (defcomponent cardpane [args components]
   (with-component [p CardPane]
     (doseq [c components] (.add p c))))
+
+(set-documentation 'cardpane (CardPane.) :keys '& 'components)
+
 
 ;; forms
 
@@ -553,6 +571,16 @@
     (when-it (:label args) (Form/setLabel component (str it)))
     component))
 
+(set-documentation 'form (Form.) :keys '& 'form-sections)
+(alter-meta! #'form-section assoc :doc
+	     (str "returns a form section from mutliple form.components" \newline
+		  "  :heading .. an optional heading for the section")
+	     :arglists '([:heading & form-components]))
+(alter-meta! #'form-component assoc :doc
+	     (str "returns a form component from a component" \newline
+		  "  :label .. an optional lable for the component")
+	     :arglists '([:label component]))
+
 ;; tabs
 
 (defproperties TabPane [t]
@@ -565,13 +593,20 @@
       (doseq [add-tab-f tabpane-panel-functions]
         (add-tab-f tab-sequence)))))
 
-(defcomponent tabpane-component [args [component]]
+(defcomponent tabpane-panel [args [component]]
   (fn [tab-sequence]
     (.add tab-sequence component)
     (when-it (:closeable args) (TabPane/setCloseable component it))
     (when-it (:label args) (TabPane/setLabel component it))
     (when-it (:icon args) (TabPane/setIcon component (get-icon it)))))
 
+(set-documentation 'tabpane (TabPane.) :keys '& 'tabpane-panels)
+(alter-meta! #'tabpane-panel assoc :doc
+	     (str "returns a tabpane-panel from a component" \newline
+		  "  :closeable .. user may close the tabpane" \newline
+		  "  :label     .. tabpane label text" \newline
+		  "  :icon      .. tabpane icon (a :key to get-icon)")
+	     :arglists '([:closeable :label :icon component]))
 
 (defproperties SplitPane [s]
   :locked (.setLocked s it) (.isLocked s) "when true, don't allow the user to move the splitbar"
@@ -595,6 +630,9 @@
 
 (defcomponent splitpane [args]
   (with-component [sp SplitPane]))
+
+(set-documentation 'splitpane (SplitPane.) :keys)
+
 
 ;; views
 
@@ -629,6 +667,9 @@
   (with-component [p Panorama]
     (doseq [c components] (.add p c))))
 
+(set-documentation 'scrollpane (ScrollPane.) :keys)
+(set-documentation 'panorama (Panorama.) :keys)
+
 ;; components
 
 (defproperties Slider [s]
@@ -638,6 +679,8 @@
 (defcomponent slider [args] ;; why is a slider a container?
   (with-component [sl Slider]
     (doseq [c components] (.add sl c))))
+
+(set-documentation 'slider (Slider.) :keys)
 
 ;; text
 
@@ -667,8 +710,12 @@
   :text (.setText t (str it)) (.getText t) "the current text"
   :text-key (.setTextKey t (str it)) (.getTextKey t) "a string key for data-binding")
 
-(def-component-ctor text-area [args]
+(defcomponent text-area [args]
   (with-component [ta TextArea]))
+
+(set-documentation 'label (Label.) :keys)
+(set-documentation 'text-input (TextInput.) :keys)
+(set-documentation 'text-area (TextArea.) :keys)
 
 ;; tables
 
@@ -707,10 +754,13 @@
   :width (.setWidth t it) (.getWidth t) "the column width"
   :relative (.setWidth t (.getWidth t) it) (.isRelative t) "the relative flag")
 
-(defcomponent table-view-column [args] ;; a meta-component, returns a function instead of component
+(defcomponent table-view-column [args] ;; not a component, but an object with properties
   (let [t (or (:self args) (TableView$Column.))]
     (set-properties t (dissoc args :self))
     t))
+
+(set-documentation 'table-view (TableView.) :keys)
+(set-documentation 'table-view-column (TableView$Column.) :keys)
 
 ;;http://mail-archives.apache.org/mod_mbox/incubator-pivot-user/200909.mbox/%3C168ef9ac0909080333u7113b048wd5601d87d0c34804@mail.gmail.com%3E
 ;;> Can I invoke the editor in my code rather than relying on a double click to
@@ -730,6 +780,8 @@
 (defcomponent table-view-header [args]
   (with-component [t TableViewHeader]))
 
+(set-documentation 'table-view-header (TableViewHeader.) :keys)
+
 ;; buttons
 
 (defproperties Button [b]
@@ -739,7 +791,7 @@
   
   :data (.setButtonData b it) (.getButtonData b) "the buttons text"
   :selected (.setSelected b it) (.isSelected b) "a flag"
-  :select-key (.setSelectKey b it) (.getSelectKey b) "key for data binding?"
+  :selected-key (.setSelectedKey b it) (.getSelectedKey b) "key for data binding?"
   :state (.setState b (get-button-state it)) (.getState b) "button state, one of: :selected :mixed :unselected"
   :toggle-state (.setToggleButton b it) (.isToggleButton b) "toggle-state flag"
   :tri-state (.setTriState b it) (.isTriState b) "tri-state flag")
@@ -768,6 +820,11 @@
 (defcomponent list-button [args]
   (with-component [l ListButton]))
 
+(set-documentation 'push-button (PushButton.) :keys)
+(set-documentation 'radio-button (RadioButton.) :keys)
+(set-documentation 'checkbox (Checkbox.) :keys)
+(set-documentation 'link-button (LinkButton.) :keys)
+(set-documentation 'list-button (ListButton.) :keys)
 
 (defproperties CalendarButton [c]
   :locale (.setLocale c it) (.getLocale c) "the java.util.Locale the calendar uses"
@@ -775,10 +832,15 @@
   :selected-date (if (vector? it)
                    (let [[y m d] it] (.setSelectedDate c (CalendarDate. y m d)))
                    (.setSelectedDate c it))
-  (.getSelectedData c)
+  (.getSelectedDate c)
   "a pivot.util.CalendarDate or a vector: [year month day]"
   
   :selected-date-key (.setSelectedDateKey c (str it)) (.getSelectedDateKey c) "string key for data binding")
+
+(defcomponent calendar-button [args]
+  (with-component [c CalendarButton]))
+
+(set-documentation 'calendar-button (CalendarButton.) :keys)
 
 
 ;; listview
@@ -788,7 +850,7 @@
   (if (vector? it)
     (let [[s e] it] (.setSelectedRange l s e))
     (.setSelectedRange l it))
-  (.getSelectedRange l)
+  (.getSelectedRanges l)
   "the selection, either a single number or a vector: [start end]"
 
   :selectmode (.setSelectMode l (get-listview-selectmode it)) (.getSelectMode l) ":none :single or :multiple items to select at once."  
@@ -802,6 +864,8 @@
 
 (defcomponent listview [args]
   (with-component [l ListView]))
+
+(set-documentation 'listview (ListView.) :keys)
 
 ;; treeview
 
@@ -820,7 +884,7 @@
 
 (defproperties TreeView [t]
   :checkmarks (.setCheckmarksEnabled t it) (.getCheckmarksEnabled t) "checkmarks flag"
-  :disbled-filter (.setDisabledNodeFilter t (make-filter it)) (.getDisabledNoteFilter t) "A filter predicate for nodes."
+  :disbled-filter (.setDisabledNodeFilter t (make-filter it)) (.getDisabledNodeFilter t) "A filter predicate for nodes."
   :node-editor (.setNodeEditor t (get-tree-view-node-editor it)) (.getNodeEditor t) ":default or a editor function, see make-tree-view-node-editor"
   :node-renderer (.setNodeRenderer t (get-tree-view-node-renderer it)) (.getNodeRenderer t) ":default, a TreeView$NodeRenderer or a function implementing it"
   :select-mode (.setSelectMode t (get-tree-view-select-mode it)) (.getSelectMode t) ":multi :single or :none"
@@ -828,4 +892,6 @@
 
 (defcomponent treeview [args]
   (with-component [t TreeView]))
+
+(set-documentation 'treeview (TreeView.) :keys)
 
