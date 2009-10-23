@@ -20,7 +20,7 @@
                                  MovieView
 				 ;; buttons
 				 Button Button$Group PushButton RadioButton
-				 Checkbox LinkButton
+				 Checkbox LinkButton Button$State
                                  ;; other components
                                  Component 
                                  Label Slider
@@ -34,8 +34,11 @@
                                  Dialog Tooltip Alert
                                  ;; tree
                                  TreeView
+                                 TreeView$NodeEditor TreeView$NodeRenderer TreeView$NodeCheckState
+                                 TreeView$PathComparator TreeView$SelectMode
                                  ;; list
                                  ListButton ListView
+                                 ListView$SelectMode ListView$ItemRenderer ListView$ItemEditor
                                  ;; menu
                                  Menu MenuBar MenuButton Menu$Item MenuPopup
                                  ;; tables
@@ -54,9 +57,14 @@
                                          TableViewMultiCellRenderer
                                          TableViewNumberCellRenderer
                                          TableViewCellEditor
-                                         TableViewRowEditor)
+                                         TableViewRowEditor
+                                         ListViewColorRenderer
+                                         ListViewItemRenderer
+                                         ListViewItemEditor
+                                         TreeViewNodeRenderer
+                                         TreeViewNodeEditor)
            (org.apache.pivot.wtk.text.validation Validator)
-           (org.apache.pivot.util Filter)
+           (org.apache.pivot.util Filter CalendarDate)
 	   (org.apache.pivot.wtkx WTKXSerializer)
 	   (org.apache.pivot.collections Map Dictionary)
 	   (java.awt Color Font)
@@ -147,14 +155,6 @@
     :fill-to-capacity ScrollPane$ScrollBarPolicy/FILL_TO_CAPACITY
     :never ScrollPane$ScrollBarPolicy/NEVER))
 
-(defn make-validator
-  "Return an org.apache.pivot.wtk.text.validation.Validator.
-  f must be a function of at least one arg, which is called with
-  a String and should return logical true if the string is valid."
-  [f]
-  (proxy [Validator] []
-    (isValid [text] (if (f text) true false))))
-
 (defn get-table-view-select-mode [keyword]
   (condp = keyword
     :multi TableView$SelectMode/MULTI
@@ -165,6 +165,28 @@
   (condp = keyword
     :asc SortDirection/ASCENDING
     :desc SortDirection/DESCENDING))
+
+(defn get-button-state [key]
+  (condp = key
+    :selected Button$State/SELECTED
+    :mixed Button$State/MIXED
+    :unseleced Button$State/UNSELECTED))
+
+(defn get-listview-selectmode [key]
+  (condp = key
+    :multi ListView$SelectMode/MULTI  
+    :none ListView$SelectMode/NONE
+    :single ListView$SelectMode/SINGLE))
+
+;; interfaces
+
+(defn make-validator
+  "Return an org.apache.pivot.wtk.text.validation.Validator.
+  f must be a function of at least one arg, which is called with
+  a String and should return logical true if the string is valid."
+  [f]
+  (proxy [Validator] []
+    (isValid [text] (if (f text) true false))))
 
 (defn make-filter
   "Return a org.apache.pivot.util.Filter with the function f performing
@@ -236,6 +258,18 @@
     ;; assume arg to be a function
     (make-cell-renderer arg)))
 
+(defn make-list-view-renderer [arg]
+  (if (keyword? arg)
+    (condp = arg
+      :default (ListViewItemRenderer.)
+      :color (ListViewColorRenderer.))))
+
+(defn make-list-view-editor [arg]
+  (if (keyword? arg)
+    (condp = arg
+      :default (ListViewItemEditor.))
+    (throwf "todo")))
+
 ;; table-view roweditors
 
 (defn make-row-editor
@@ -266,77 +300,86 @@
       :cell (TableViewCellEditor.))
     (make-row-editor)))
 
+;; tree view helpers
+
+(defn get-tree-view-select-mode [key]
+  (condp = key
+    :single TreeView$SelectMode/SINGLE
+    :multi TreeView$SelectMode/MULTI
+    :none TreeView$SelectMode/NONE))
+
+(defn make-tree-view-node-editor
+  "Return a TreeView$NodeEditor implemented by function f.
+  f is called with the edit params when the editors edit method
+  is invoked. Edit params are: this, treeview and a Sequence$Tree$Path.
+  Other method invocations are handed over to f
+  with a single keyword (:cancel, :is-editing and :save)"
+  [f]
+  (proxy [TreeView$NodeEditor] []
+    (edit [treeview, path]
+          (f this treeview path))
+    (cancel [] (f this :cancel))
+    (isEditing [] (f this :is-editing))
+    (save [] (f this :save))))
+
+(defn get-tree-view-node-editor
+  "either :default or an edit-function.
+  see make-tree-view-node-editor."
+  [arg]
+  (if (= :default arg)
+    (TreeViewNodeEditor.)
+    (make-tree-view-node-editor arg)))
+
+(defn make-tree-view-node-renderer [f]
+  ;; TODO
+  (proxy [TreeView$NodeEditor] []))
+
+(defn get-tree-view-node-renderer [arg]
+  (cond
+    (= :default arg) (TreeViewNodeRenderer.)
+    (isa? arg TreeView$NodeRenderer) arg
+    :else (make-tree-view-node-renderer arg)))
+
 ;; tools for component constructors
 
-(defn parse-component-ctor-args
-  "keywords, style-map, components"
+(defn parse-component-args
+  "Read arglist, assume a sequence of :key value pairs, pack them into a hashmap.
+  Leave the remaining args in the seq and return [hashmap rest].
+  If the first argument is a hashmap, return it and the remaing arguments."
   [arglist]
+  (if (map? (first arglist))
+    [(first arglist) (rest arglist)])
   (loop [a arglist
-	 mode :keyargs
-	 keyargs {}
-	 style {}
-	 components []
-	 other []]
+         args {}]
     (if (seq a)
-      (condp = mode 
-	:keyargs (let [[k v & more] a]
-		   (if (keyword? k)
-		     (recur more mode (assoc keyargs k v) style components other)
-		     (recur a :style keyargs style components other)))
-	:style (let [[s & more] a]
-		 (if (map? s)
-		   (recur more :components keyargs s components other)
-		   (recur a :components keyargs style components other)))
-	:components (let [[c & more] a]
-		      (recur more mode keyargs style (conj components c) other)))
-      {:style style :args keyargs :components components})))
+      (let [[k v & more] a]
+        (if (keyword? k)
+          (recur more (assoc args k v))
+          [args a]))
+      [args a])))
 
-;;(parse-args [:a 1 :b 2 {:style 'foo} (BoxPane.) (Border.) (Border.) 'foo])
+;;(parse-component-args [:a 1 :b 2 (BoxPane.) (Border.) (Border.)])
 
-(defmacro def-component-ctor
+(defmacro defcomponent
   "Define a component constructor. Arg-keys is a vector of symbols naming
   keys from the arguments parsed with parse-component-ctor-args."
-  [name arg-keys & body]
+  [name arg-vec & body]
   `(defn ~name [& args#]
-     (let [{:keys ~arg-keys} (parse-component-ctor-args args#)]
+     (let [~arg-vec (parse-component-args args#)]
        ~@body)))
 
-(defmacro when-it
-  "Anaphoric when using ìt'."
-  [expr & body]
-  `(when-let [~'it ~expr] ~@body))
-
-(defmacro cond-call-it
-  "(when (contains? args :keyword) (let [it (get args :keyword)] (.doSomething foo it)))
-   ...
-   ->
-  (cond-call-it args
-    :keyword (.doSomething foo it)
-    ...)."
-  [args & clauses]
-  (let [args_ (gensym 'args)]
-    `(let [~args_ ~args]
-       ~@(map (fn [[key expr]]
-		`(when (contains? ~args_ ~key)
-		   (let [~'it (get ~args ~key)]
-		     ~expr)))
-	      (partition 2 clauses)))))
-
 (defmacro with-component
-  "For use with in the def-component-ctor macro. Requires `args' and `styles'
-  to be bound to the keyargs and styles maps. Executes body with in a component
-  bound to component-name, invokes default-component-arg-handler on component and
-  returns the component.
-  Component is eiter instanciated using the defalt classname ctor or by looking up
-  :self in args."
+  "For use within the defcomponent macro. Requires `args'
+  to be bound to the keyargs map. Executes body with in a component
+  bound to component-name.
+  Component is eiter instanciated using the given classnames default ctor
+  or by looking up :self in args."
   [[component-name classname] & body]
-  `(let [~component-name (default-component-arg-handler 
-			   (set-styles (or (:self ~'args) (new ~classname))
-				       ~'style)
-			   ~'args)]
+  `(let [~component-name (or (:self ~'args) (new ~classname))         
+         ~'args (dissoc ~'args :self)]
+     (set-properties ~component-name ~'args)
      ~@body
      ~component-name))
-
 
 ;; Component Properties
 
@@ -359,7 +402,7 @@
 (defn get-all-property-defs
   "Return a map of property definitions for a given object o."
   [o]
-  (let [types (conj (supers (type o)) (type o))]
+  (let [types (conj (supers (type o)) (type o))]   
     (apply merge (map property-definition-map types))))
 
 (defn set-properties
@@ -380,6 +423,30 @@
 		    (when getter [k (getter o)]))
 		  p))))
 
+(defn doc-properties
+  "return a docstring made up of the objects properties"
+  [o]
+  (let [p (get-all-property-defs o)]
+    (apply str (map (fn [[k {:keys [doc]}]] (str k " .. " doc \newline)) p))))
+
+(defn set-documentation
+  "generate docstrings from property docs."
+  [var o & arglist-spec]
+  (alter-meta! (resolve var)
+               assoc
+               :doc (str "Returns a new or existing (given with :self) " (type o) " with the given properties set" \newline (doc-properties o))
+               :arglists (if (= [:keys] arglist-spec)
+                           (list (vec (keys (get-properties o))))
+                           (if (= (first arglist-spec) :keys)
+                             (vec (concat (keys (get-properties o)) (second arglist-spec)))
+                             (vec arglist-spec)))))
+
+(defmacro when-it
+  "Anaphoric when using ìt'."
+  [expr & body]
+  `(when-let [~'it ~expr] ~@body))
+
+;; the definitions
 
 (defproperties Component [c]
   :enabled (.setEnabled c it) (.isEnabled c) "Enabled status."
@@ -389,7 +456,7 @@
   :preferred-width
   (if (vector? it) 
     (let [[min max] it] (.setPreferredWidthLimits c min max))
-    (.setPreferredWidth c it))
+    (.setPreferredWidth c it)) 
   nil
   "Set the preferred width of the Component. Can be a single number or a vector of [min max]."
   
@@ -407,8 +474,12 @@
 
   :styles (set-styles c it) (dictionary->hashmap (.getStyles c)) "A map of styles for the component."
 
-  :user (set-user-data c it) (dictionary->hashmap (.getUserData c)) "Userdata of Component, a clojure hashmap.")
+  :user 
+  (set-user-data c it)
+  (dictionary->hashmap (.getUserData c))
+  "Userdata of Component, a clojure hashmap.")
 
+;; containers
 
 (defproperties Window [w]
   :maximized (.setMaximized w it) (.isMaximized w) "when true, maximize window over the whole display"
@@ -416,197 +487,230 @@
   :title (.setTitle w (str it)) (.getTitle w) "the windows title"
   :icon (.setIcon w (get-icon it)) (.getIcon w) "the windows icon, a keyword or an Image object.")
 
-(defcontainer window [args components])
-  
-;; containers
+(defcomponent window [args [component]]
+  (with-component [w Window] 
+    (when-it component (.setContent w it))))
+(set-documentation 'window (Window.) :keys '[component])
 
-(def-component-ctor window [args style components]
-  (with-component [w Window]
-    (when-let [[c] components] (.setContent w c))
-    (cond-call-it args
-      :maximized (.setMaximized w it)
-      :visible (.setVisible w it)
-      :title (.setTitle w it)
-      :icon (.setIcon w (get-icon it)))))
 
-(def-component-ctor boxpane [args style components]
-  (with-component [bp BoxPane]
-    (doseq [c components] (.add bp c))
-    (when-it (:orientation args) (.setOrientation bp (get-orientation it)))))
+(defproperties BoxPane [b]
+  :orientation (.setOrientation b (get-orientation it)) (.getOrientation b)
+  "The orientation of the components of the boxpane: :vert :vertical or :horiz :horizontal.")
 
-(def-component-ctor border [args style components]
-  (with-component [bo Border]
-    (when-let [[c] components] (.setContent bo c))
-    (when-it (:title args) (.setTitle bo it))))
+(defcomponent boxpane [args components]
+  (with-component [b BoxPane]
+    (doseq [c components] (.add b c))))
 
-(def-component-ctor accordion [args style components]
-  (with-component [acc Accordion]
-    (doseq [acc-panel-f components]
-      (acc-panel-f acc))
-    (cond-call-it args
-      :selected-index (.setSelectedIndex acc it))))
 
-(def-component-ctor accordion-panel [args components]
-  (let [[c] components]
-    (fn [accordion]
-      (.add (.getPanels accordion) c)
-      (cond-call-it args
-        :label (Accordion/setLabel c (str it))
-        :icon (Accordion/setIcon c (get-icon it)))
-      c)))
+(defproperties Border [b]
+  :title (.setTitle b (str it)) (.getTitle b) "The borders title.")
+
+(defcomponent border [args [component]]
+  (with-component [b Border]
+    (when-it component (.setContent b it))))
+
+
+(defproperties Accordion [a]
+  :selected-index (.setSelectedIndex a it) (.getSelectedIndex a) "The currently selected accordion-pane.")
+
+(defcomponent accordion [args accordion-panels]
+  (with-component [a Accordion]
+    (doseq [acc-panel-f accordion-panels]
+      (acc-panel-f a))))
+
+(defcomponent accordion-panel [args [component]];; meta component for accordion panels
+  (fn [accordion]
+    (.add (.getPanels accordion) component)
+    (when-it (:label args) (Accordion/setLabel component (str it)))
+    (when-it (:icon args) (Accordion/setIcon component (get-icon it)))
+    component))
+
+(defproperties CardPane [c]
+  :selected-index (.setSelectedIndex c it) (.getSelectedIndex c) "the index of the selected (== shown) component")
+
+(defcomponent cardpane [args components]
+  (with-component [p CardPane]
+    (doseq [c components] (.add p c))))
 
 ;; forms
 
-(def-component-ctor form [args style components]
+(defcomponent form [args form-sections]
   (with-component [fm Form]
-    (doseq [add-section-f components]
+    (doseq [add-section-f form-sections]
       (add-section-f fm))))
 
-(def-component-ctor form-section [args components]
+(defcomponent form-section [args form-component-functions]
   (fn [form]
     (let [sec (or (:self args) (Form$Section.))]
       (.add (.getSections form) sec)
-      (doseq [add-form-component-f components]
+      (doseq [add-form-component-f form-component-functions]
         (add-form-component-f sec))
-      (cond-call-it args
-        :heading (.setHeading sec (str it))))))
+      (when-it (:heading args) (.setHeading sec (str it))))))
 
-(def-component-ctor form-component [args components]
-  (let [[c] components]
-    (fn [section]
-      (.add section c)
-      (cond-call-it args
-        :label (Form/setLabel c (str it)))
-      c)))
+(defcomponent form-component [args [component]]
+  (fn [section]
+    (.add section component)
+    (when-it (:label args) (Form/setLabel component (str it)))
+    component))
 
 ;; tabs
 
-(def-component-ctor tabpane [args style components]
-  (with-component [ta TabPane]
-    (let [tab-sequence (.getTabs ta)]
-      (doseq [add-tab-f components]
-        (add-tab-f tab-sequence)))
-    (cond-call-it args
-      :corner (.setCorner ta it)
-      :selected-index (.setSelectedIndex ta it))))
+(defproperties TabPane [t]
+  :corner (.setCorner t it) (.getCorner t) "set/get a corner component"
+  :selected-index (.setSelectedIndex t it) (.getSelectedIndex t) "the currently selected tab index")
 
-(def-component-ctor tabpane-component [args components]
-  (let [[c] components]
-    (fn [tab-sequence]
-      (.add tab-sequence c)
-      (cond-call-it args
-        :closeable (TabPane/setCloseable c it)
-        :label (TabPane/setLabel c it)
-        :icon (TabPane/setIcon c (get-icon it))))))
+(defcomponent tabpane [args tabpane-panel-functions]
+  (with-component [t TabPane]
+    (let [tab-sequence (.getTabs t)]
+      (doseq [add-tab-f tabpane-panel-functions]
+        (add-tab-f tab-sequence)))))
 
-(def-component-ctor splitpane [args style]
-  (with-component [sp SplitPane]
-    (cond-call-it args
-      :locked (.setLocked sp it)
-      :orientation (.setOrientation sp (get-orientation it))
-      :primary-region (.setPrimaryRegion sp (condp = it
-                                              :top-left SplitPane$Region/TOP_LEFT
-                                              :bottom-right SplitPane$Region/BOTTOM_RIGHT))
-      :split-ratio (.setSplitRatio sp it)
-      ;; components
-      :bottom (.setBottom sp it)
-      :bottom-right (.setBottomRight sp it)
-      :left (.setLeft sp it)
-      :right (.setRight sp it)
-      :top (.setTop sp it)
-      :top-left (.setTopLeft sp it))))
+(defcomponent tabpane-component [args [component]]
+  (fn [tab-sequence]
+    (.add tab-sequence component)
+    (when-it (:closeable args) (TabPane/setCloseable component it))
+    (when-it (:label args) (TabPane/setLabel component it))
+    (when-it (:icon args) (TabPane/setIcon component (get-icon it)))))
 
+
+(defproperties SplitPane [s]
+  :locked (.setLocked s it) (.isLocked s) "when true, don't allow the user to move the splitbar"
+  :orientation (.setOrientation s (get-orientation it)) (.getOrientation s) ":vert or :horiz, splitbar orientation"
+
+  :primary-region 
+  (.setPrimaryRegion s (condp = it
+                                         :top-left SplitPane$Region/TOP_LEFT
+                                         :bottom-right SplitPane$Region/BOTTOM_RIGHT))
+  (.getPrimaryRegion s)
+  ":top-left or :bottom-right, determines the primary region of the splitpane, eg. the one which is shown at 1.0 split ratio"
+
+  :split-ratio (.setSplitRatio s it) (.getSplitRatio s) "a float determining the ratio between the two nested components"
+  ;; components
+  :bottom (.setBottom s it) (.getBottom s) "the bottom component in a :horizontal splitpane"
+  :bottom-right (.setBottomRight s it) (.getBottomRight s) "the bottom or right component"
+  :left (.setLeft s it) (.getLeft s) "the left component in a :vertical splitpane"
+  :right (.setRight s it) (.getRight s) "the right component in a :vertical splitpane"
+  :top (.setTop s it) (.getLeft s) "the top component in a :horizontal splitpane"
+  :top-left (.setTopLeft s it) "the top or left component")
+
+(defcomponent splitpane [args]
+  (with-component [sp SplitPane]))
 
 ;; views
 
-(def-component-ctor scrollpane [args style components]
-  (with-component [sc ScrollPane]
-    (doseq [c components] (.add sc c))
-    (cond-call-it args
-      :horiz-scrollbar-policy (.setHorizontalScrollBarPolicy sc (get-scrollbar-policy it))
-      :vert-scrollbar-policy (.setVerticalScrollBarPolicy sc (get-scrollbar-policy it))
-      :consume-repaint (.setConsumeRepaint sc it)
-      :scroll-left (.setScrollLeft sc it)
-      :scroll-top (.setScrollTop sc it)
-      ;; components
-      :corner (.setCorner sc it)
-      :row-header (.setRowHeader sc it)
-      :column-header (.setColumnHeader sc it)
-      :view (.setView sc it))))
+(defproperties Viewport [v]
+  :consume-repaint (.setConsumeRepaint v it) (.isConsumeRepaint v)
+  "the consumeRepaint flag, which controls whether the viewport will propagate repaints to its parent or consume them."  
+  :scroll-left (.setScrollLeft v it) (.getScrollLeft v) "set or get horizontal scroll-amount"
+  :scroll-top (.setScrollTop v it) (.getScrollTop v) "set or get horizontal scroll-amount"
+  :view (.setView v it) (.getView v) "set/get the view component (the main one to scroll around)")
 
-(def-component-ctor panorama [args style components]
-  (with-component [pa Panorama]
-    (doseq [c components] (.add pa c))
-    (cond-call-it args
-      :consume-repaint (.setConsumeRepaint pa it)
-      :scroll-left (.setScrollLeft pa it)
-      :scroll-top (.setScrollTop pa it)
-      ;; components
-      :view (.setView pa it))))
+(defproperties ScrollPane [s]
+  :horiz-scrollbar-policy 
+  (.setHorizontalScrollBarPolicy s (get-scrollbar-policy it))
+  (.getHorizontalScrollBarPolicy s)
+  "one of :always :auto :fill :fill-to-capacity :never"
+  
+  :vert-scrollbar-policy 
+  (.setVerticalScrollBarPolicy s (get-scrollbar-policy it))
+  (.getVerticalScrollBarPolicy s)
+  "one of :always :auto :fill :fill-to-capacity :never"
+  
+  ;; components
+  :corner (.setCorner s it) (.getCorner s) "the corner component"
+  :row-header (.setRowHeader s it) (.getRowHeader s) "the row header component"
+  :column-header (.setColumnHeader s it) (.getColumnHeader s) "the column header component")0
 
+(defcomponent scrollpane [args components]
+  (with-component [s ScrollPane]
+    (doseq [c components] (.add s c))))
+
+(defcomponent panorama [args components]
+  (with-component [p Panorama]
+    (doseq [c components] (.add p c))))
 
 ;; components
 
-(def-component-ctor slider [args style components] ;; why is a slider a container?
+(defproperties Slider [s]
+  :range (let [[min max] it] (.setRange s min max)) [(.getStart s) (.getEnd s)] "the range [min max] of the slider"
+  :value (.setValue s it) (.getValue s) "the value of the slider")
+
+(defcomponent slider [args] ;; why is a slider a container?
   (with-component [sl Slider]
-    (doseq [c components] (.add sl c))
-    (cond-call-it args
-      :range (let [[min max] it] (.setRange sl min max)))))
+    (doseq [c components] (.add sl c))))
 
 ;; text
 
-(def-component-ctor label [args style]
-  (with-component [la Label]
-    (when-it (:text args) (.setText la it))))
+(defproperties Label [l]
+  :text (.setText l it) (.getText l) "the text")
 
-(def-component-ctor text-input [args style components]
-  (with-component [ti TextInput]
-    (cond-call-it args
-      :max-length (.setMaximumLength ti it)
-      :password (.setPassword ti it)
-      :prompt (.setPrompt ti (str it))
-      :selection (let [[s e] it] (.setSelection ti s e))
-      :text (.setText ti (str it))
-      :text-key (.setTextKey ti (str it))
-      :text-node (.setTextNode ti it)
-      :text-size (.setTextSize ti it)
-      :validator (.setValidator ti (make-validator it)))))
+(defcomponent label [args style]
+  (with-component [la Label]))
 
-(def-component-ctor text-area [args style components]
-  (with-component [ta TextArea]
-    (cond-call-it args 
-      :editable (.setEditable ta it)
-      :selection (let [[s e] it] (.setSelection ta s e))
-      :text (.setText ta (str it))
-      :text-key (.setTextKey ta (str it)))))
+(defproperties TextInput [t]
+  :max-length (.setMaximumLength t it) (.getMaximumLength t) "max length in characters"
+  :password (.setPassword t it) (.isPassword t) "hide letters when its a password field"
+  :prompt (.setPrompt t (str it)) (.getPrompt t) "the text appearing in an empty textinput"
+  :selection (let [[s e] it] (.setSelection t s e)) (.getSelection t) "selected text: [start end]"
+  :text (.setText t (str it)) (.getText t) "the textinputs content"
+  :text-key (.setTextKey t (str it)) (.getTextKey t) "string key for data-binding"
+  :text-node (.setTextNode t it) (.getTextNode t) "a TextNode"
+  :text-size (.setTextSize t it) (.getTextSize t) "length of the inputs text"
+  :validator (.setValidator t (make-validator it)) (.getValidator t) "a function implementing the Validator interface")
+
+(defcomponent text-input [args]
+  (with-component [ti TextInput]))
+
+(defproperties TextArea [t]
+  :editable (.setEditable t it) (.isEditable t) "editable flag"
+  :selection (let [[s e] it] (.setSelection t s e)) (.getSelection t) "selected text: [start end]"
+  :text (.setText t (str it)) (.getText t) "the current text"
+  :text-key (.setTextKey t (str it)) (.getTextKey t) "a string key for data-binding")
+
+(def-component-ctor text-area [args]
+  (with-component [ta TextArea]))
 
 ;; tables
 
-(def-component-ctor table-view [args style components] ;; actually, components are TableView$Columns
+(defproperties TableView [t]
+  :disabled-filter (.setDisabledRowFilter t (make-filter it)) (.getDisabledRowFilter t) "a predicate-function implementing a Filter"
+  :row-editor (.setRowEditor t (make-table-view-editor it)) (.getRowEditor t) "a funciton implenting editor, see make-table-view-editor"
+
+  :selected-index 
+  (if (number? it) 
+    (.setSelectedIndex t it)
+    (let [[s e] it] (.setSelectedRange t s e))) ;; TODO: add support for ranges [[s0 e0] [s1 e1] ..]
+  (.getSelectedRows t)
+  "sets a selected-row or a range of rows [start end]"
+  
+  :select-mode (.setSelectMode t (get-table-view-select-mode it)) (.getSelectMode t)
+  "the row select mode, one of: :multi :single :none"
+  
+  :data (.setTableData t it) (.getTableData t) "a List of Dictionaries of strings to any value or a list of javabeans")
+
+(defcomponent table-view [args columns] ;; actually, components are TableView$Columns
   (with-component [t TableView]
     (let [col-sequence (.getColumns t)]
-      (doseq [column components]
-        (.add col-sequence column)))
-    (cond-call-it args
-      :disabled-filter (.setDisabledRowFilter t (make-filter it))
-      :row-editor (.setRowEditor t (make-table-view-editor it))
-      :selected-index (if (number? it) 
-                        (.setSelectedIndex t it)
-                        (let [[s e] it] (.setSelectedRange t s e))) ;; TODO: add support for ranges [[s0 e0] [s1 e1] ..]
-      :select-mode (.setSelectMode t (get-table-view-select-mode it))
-      :data (.setTableData t it))))
+      (doseq [c columns]
+        (.add col-sequence c)))))
 
-(def-component-ctor table-view-column [args style] ;; actually, not a component
-  (let [tv (or (:self args) (TableView$Column.))]
-    (cond-call-it args
-      :filter (.setFilter tv (make-filter it))
-      :cell-renderer (.setCellRenderer tv (make-table-view-cell-renderer it))
-      :header-data (.setHeaderData tv it) ;; String?
-      :name (.setName tv (str it))
-      :sort-direction (.setSortDirection tv (get-sort-direction it))
-      :width (.setWidth tv it)
-      :relative (.setWidth tv (.getWidth tv) it))
-    tv))
+(defproperties TableView$Column [t]
+  :filter (.setFilter t (make-filter it)) (.getFilter t) "a predicate"
+
+  :cell-renderer (.setCellRenderer t (make-table-view-cell-renderer it)) (.getCellRenderer t)
+  "one of :boolean :string :date :filesize :image :multi :number, 
+  or a custom one (function) see make-table-view-cell-renderer"
+  
+  :header-data (.setHeaderData t it) (.getHeaderData t) "the displayed column name"
+  :name (.setName t (str it)) (.getName t) "the name of the key where the data is (a string)"
+  :sort-direction (.setSortDirection t (get-sort-direction it)) (.getSortDirection t) ":asc or :desc (for ascending or descending sort order)"
+  :width (.setWidth t it) (.getWidth t) "the column width"
+  :relative (.setWidth t (.getWidth t) it) (.isRelative t) "the relative flag")
+
+(defcomponent table-view-column [args] ;; a meta-component, returns a function instead of component
+  (let [t (or (:self args) (TableView$Column.))]
+    (set-properties t (dissoc args :self))
+    t))
 
 ;;http://mail-archives.apache.org/mod_mbox/incubator-pivot-user/200909.mbox/%3C168ef9ac0909080333u7113b048wd5601d87d0c34804@mail.gmail.com%3E
 ;;> Can I invoke the editor in my code rather than relying on a double click to
@@ -616,37 +720,112 @@
 ;;tableView.getSelectedIndex(), columnIndex) to initiate an edit on the
 ;;selected row at whatever column index you choose.
 
+(defproperties TableViewHeader [t]
+  :table-view (.setTableView t it) (.getTableView t) "the headers table-view its associated with"
 
-(def-component-ctor table-view-header [args style]
-  (with-component [tvh TableViewHeader]
-    (cond-call-it args
-      :table-view (.setTableView tvh it)
-      :data-renderer (.setDataRenderer tvh it))))
+  :data-renderer (.setDataRenderer t it) (.getDataRenderer t) 
+  "the header-data renderer (a function which calls the component which
+  displays header data, eg. a simple label or a button")
+
+(defcomponent table-view-header [args]
+  (with-component [t TableViewHeader]))
 
 ;; buttons
 
-(defn button-arg-handler
-  "handler for common button args"
-  [button args]
-  (cond-call-it args
-    :group (.setGroup button (if (isa? (type it) Button$Group)
-                               it
-                               (str it)))
-    :data (.setButtonData button it)
-    :selected (.setSelected button it)))
+(defproperties Button [b]
+  ;;:action (.setAction b it) (.getAction b) "an Action"
+  :group (.setGroup b (if (isa? (type it) Button$Group) it (str it))) (.getGroup b)
+  "the button group, either sth stringable or a Button$Group"
+  
+  :data (.setButtonData b it) (.getButtonData b) "the buttons text"
+  :selected (.setSelected b it) (.isSelected b) "a flag"
+  :select-key (.setSelectKey b it) (.getSelectKey b) "key for data binding?"
+  :state (.setState b (get-button-state it)) (.getState b) "button state, one of: :selected :mixed :unselected"
+  :toggle-state (.setToggleButton b it) (.isToggleButton b) "toggle-state flag"
+  :tri-state (.setTriState b it) (.isTriState b) "tri-state flag")
 
-(def-component-ctor push-button [args style]
-  (with-component [pb PushButton]
-    (button-arg-handler pb args)))
+(defcomponent push-button [args]
+  (with-component [pb PushButton]))
 
-(def-component-ctor radio-button [args style]
-  (with-component [rb RadioButton]
-    (button-arg-handler rb args)))
+(defcomponent radio-button [args]
+  (with-component [rb RadioButton]))
 
-(def-component-ctor checkbox [args style]
-  (with-component [cb Checkbox]
-    (button-arg-handler cb args)))
+(defcomponent checkbox [args]
+  (with-component [cb Checkbox]))
+
+(defcomponent link-button [args]
+  (with-component [l LinkButton]))
+
+(defproperties ListButton [l]
+  :disabled-filter (.setDisabledItemFilter l (make-filter it)) (.getDisabledItemFilter l) "a predicate filtering items"
+  :data (.setListData l it) (.getListData l) "the listbuttons data, a List"
+  :selected-item (.setSelectedItem l it) (.getSelectedItem l) "set an item to select/get the selected item"
+  :selected-item-key (.setSelectedItemKey l (str it)) (.getSelectedItemKey l) "a key (string)"
+
+  :item-renderer (.setItemRenderer l (make-list-view-renderer it)) (.getItemRenderer l)
+  ":default or color, or a function, see make-list-view-renderer")
+
+(defcomponent list-button [args]
+  (with-component [l ListButton]))
 
 
+(defproperties CalendarButton [c]
+  :locale (.setLocale c it) (.getLocale c) "the java.util.Locale the calendar uses"
 
+  :selected-date (if (vector? it)
+                   (let [[y m d] it] (.setSelectedDate c (CalendarDate. y m d)))
+                   (.setSelectedDate c it))
+  (.getSelectedData c)
+  "a pivot.util.CalendarDate or a vector: [year month day]"
+  
+  :selected-date-key (.setSelectedDateKey c (str it)) (.getSelectedDateKey c) "string key for data binding")
+
+
+;; listview
+
+(defproperties ListView [l]
+  :selected 
+  (if (vector? it)
+    (let [[s e] it] (.setSelectedRange l s e))
+    (.setSelectedRange l it))
+  (.getSelectedRange l)
+  "the selection, either a single number or a vector: [start end]"
+
+  :selectmode (.setSelectMode l (get-listview-selectmode it)) (.getSelectMode l) ":none :single or :multiple items to select at once."  
+  :checkmarks (.setCheckmarksEnabled l it) (.getCheckmarksEnabled l) "checkmarks flag"  
+  :disabled-filter (.setDisabledItemFilter l (make-filter it)) (.getDisabledItemFilter l) "disabled item filter, a predicate"
+  :item-editor (.setItemEditor l (make-list-view-editor it)) (.getItemEditor l) ":default or a function implementing the ListView$Editor interface"
+  :item-renderer (.setItemRenderer l (make-list-view-renderer it)) (.getItemRenderer l) ":default or color, or a function, see make-list-view-renderer"
+  :data (.setListData l it) (.getListData l) "list data, probably a dictionary"
+  :selected-item-key (.setSelectedItemKey l (str it)) (.getSelectedItemKey l) "string key to bind selected item to"
+  :selected-items-key (.setSelectedItemsKey l (str it)) (.getSelectedItemsKey l) "string key to bind selected item to")
+
+(defcomponent listview [args]
+  (with-component [l ListView]))
+
+;; treeview
+
+(defproperties TreeViewNodeRenderer [t]
+  :icon-height 
+  (.setIconHeight t (if (= :default it) TreeViewNodeRenderer/DEFAULT_ICON_HEIGHT it))
+  (.getIconHeight t)
+  "the icon height (an int or :default)"
+  
+  :icon-width 
+  (.setIconWidth t (if (= :default it) TreeViewNodeRenderer/DEFAULT_ICON_WIDTH it))
+  (.getIconWidth t)
+  "the icon width (an int or :default)"
+
+  :show-icon (.setShowIcon t it) (.getShowIcon t) "show icon flag")
+
+(defproperties TreeView [t]
+  :checkmarks (.setCheckmarksEnabled t it) (.getCheckmarksEnabled t) "checkmarks flag"
+  :disbled-filter (.setDisabledNodeFilter t (make-filter it)) (.getDisabledNoteFilter t) "A filter predicate for nodes."
+  :node-editor (.setNodeEditor t (get-tree-view-node-editor it)) (.getNodeEditor t) ":default or a editor function, see make-tree-view-node-editor"
+  :node-renderer (.setNodeRenderer t (get-tree-view-node-renderer it)) (.getNodeRenderer t) ":default, a TreeView$NodeRenderer or a function implementing it"
+  :select-mode (.setSelectMode t (get-tree-view-select-mode it)) (.getSelectMode t) ":multi :single or :none"
+  :data (.setTreeData t it) (.getTreeData t) "tree data, a list of values, either plain strings or treeviews for the default renderer")
+
+(defcomponent treeview [args]
+  (with-component [t TreeView]))
 
