@@ -9,7 +9,9 @@
         hoeck.pivot.components
         hoeck.pivot.listeners)
   (:require [hoeck.pivot.Application :as app])
-  (:import (org.apache.pivot.wtk DesktopApplicationContext)))
+  (:import (org.apache.pivot.wtk DesktopApplicationContext)
+	   (org.apache.pivot.wtkx WTKXSerializer)
+	   (java.net URL)))
 
 (def appstate (agent {}))
 
@@ -25,14 +27,10 @@
   (app/set-startup-fn (fn [display] (send appstate assoc :display display)))
   (DesktopApplicationContext/main hoeck.pivot.Application, (into-array String ())))
 
+;;DesktopApplicationContext/queueCallback(Runnable callback) ;; to execute things within the pivot (awt) thread
 
-;;DesktopApplicationContext/queueCallback(Runnable callback) 
-
-(comment
-  (start-pivot)
-  
-  (defn make-accordion-menu []
-    (accordion :preferred-size [60 200]
+(defn accordion-menu []
+  (accordion :preferred-size [120 300]
 	       (accordion-panel :label 'one 
 				(boxpane :orientation :vert
 					 (checkbox :data "A")
@@ -43,6 +41,59 @@
 	       (accordion-panel :label 'bak 
 				(push-button :data "click -you"))))
 
+(defn main-window []
+  (window :maximized true
+	  (boxpane :orientation :horiz
+		   (boxpane :user {:name 'left-box}
+			    (accordion-menu))
+		   (boxpane :user {:name 'main-pane})
+		   
+		   )))
+
+
+
+(defn component-inspector []
+  (let [inspector-click-listener (listener :component-mouse-button * 
+					   #(do (println (:int %)) true))]
+    (add-listener (@appstate :display) inspector-click-listener)))
+
+(defn tree-view-from-hashmap [x]
+  (tree-view :data (make-list 'a 'b 'c 'd))
+  )
+
+(comment
+  (start-pivot)
+  
+  (let [w (window :maximized true
+		  (label :text "hier"))]
+    (show-only w)
+    (.open (frame (push-button  :data "clickme"))
+	   (@appstate :display)))
+
+  (show-only (main-window))
+
+  (component-inspector)
+  (remove-listeners (@appstate :display))
+
+  
+  (show-only (window (tree-view :data (tree-branch (tree-node :text 'foo)
+						   (tree-branch :text 'please-expand!
+								(tree-node :text 'bar-0)
+								(tree-node :text 'bar-1)
+								(tree-node :text 'bar-2)
+								(tree-node :text 'bar-3))
+						   (tree-node :text 'baz)))))
+
+  
+  (show-only (window (.readObject (WTKXSerializer.) (URL. "file:///d:/clj/trees.wtkx"))))
+  (let [X (.readObject (WTKXSerializer.) (URL. "file:///d:/clj/trees.wtkx"))]
+    (-> X get-properties :components first get-properties :components first get-properties :components
+	second get-properties :components first get-properties :components first get-properties
+	pprint)
+    )
+  )
+
+(comment
 
   ;; playground
   (def __t  (table-view

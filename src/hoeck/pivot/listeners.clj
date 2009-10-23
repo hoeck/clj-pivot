@@ -106,6 +106,11 @@
 (def listener-map (zipmap (map #(.getSimpleName %) listeners)
                           (map get-methods listeners)))
 
+;; map of listener names (without the package prefix) to
+;; full listener names
+(def listener-classname-map (zipmap (map #(.getSimpleName %) listeners)
+				    (map #(symbol (.getName %)) listeners)))
+
 (defn lisp-to-camelcase [first-letter-uppercase? symbol-or-keyword]
   (when symbol-or-keyword
     (let [sn (.split (name symbol-or-keyword) "-")
@@ -194,13 +199,13 @@
   ([listener-key f] `(listener ~listener-key nil ~f))
   ([listener-key method-key f]
      (let [l (listener-name listener-key)
-            l-method-map (listener-map l)
+	   l-method-map (listener-map l)
            m (if (= method-key '*)
                (keys l-method-map)
                [(listener-method-name l method-key)])
            f_ (gensym)
            args_ (gensym)]
-       `(let [p# (proxy [~(symbol l)] [])
+       `(let [p# (proxy [~(listener-classname-map l)] [])
               ~f_ ~f]
           (init-proxy p# ~(zipmap m
                                   (map (fn [method-name]
@@ -239,10 +244,14 @@
 (defn get-listener-list-getters
   "Return a seq of string representing ListenerList getters of object. Given a
   listener implemented with the listener-macro, return a list with one getter name which
-  can be used to get the ListenerList of the listeners type."
+  can be used to get the ListenerList of the listeners type.
+  Return only non static listenerlist-getters."
   ([object]
      (let [t (type object)]
-       (map (memfn getName) (filter listener-list-getter? (.getMethods t)))))
+       (map (memfn getName) (filter #(and (listener-list-getter? %)
+					  (not (java.lang.reflect.Modifier/isStatic 
+						(.getModifiers %))))
+				    (.getMethods t)))))
   ([object listener]
      (let [lt (get-implemented-listener-type listener)
            t (type object)]
@@ -348,7 +357,7 @@
       ComponentMouseButtonListener "getComponentMouseButtonListeners",
       ImageViewListener "getImageViewListeners",
       MenuBarListener "getMenuBarListeners",
-      ComponentClassListener "getComponentClassListeners",
+      ;;ComponentClassListener "getComponentClassListeners", ;; static!
       SliderListener "getSliderListeners",
       Button$NamedGroupDictionaryListener
       "getNamedGroupDictionaryListeners",
@@ -390,9 +399,9 @@
 (defn remove-listeners
   "Remove all clojure listeners from  the given (pivot) object."
   [object]
-  (doseq [g (get-listener-list-getters (type object))]
+  (doseq [g (get-listener-list-getters object)]
     (let [ll (jcall object g)]
-      (doseq [l (doall (seq (jcall object g)))]
+      (doseq [l (doall (seq ll))]
         (when (re-matches #".*clojure.*" (.getName (type l)))
           (.remove ll l))))))
 

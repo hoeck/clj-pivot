@@ -62,10 +62,11 @@
                                          ListViewItemRenderer
                                          ListViewItemEditor
                                          TreeViewNodeRenderer
-                                         TreeViewNodeEditor)
+                                         TreeViewNodeEditor
+					 TreeBranch
+					 TreeNode)
            (org.apache.pivot.wtk.text.validation Validator)
            (org.apache.pivot.util Filter CalendarDate)
-	   (org.apache.pivot.wtkx WTKXSerializer)
 	   (org.apache.pivot.collections Map Dictionary)
 	   (java.awt Color Font)
 	   (java.net URL)))
@@ -481,9 +482,19 @@
   (dictionary->hashmap (.getUserData c))
   "Userdata of Component, a clojure hashmap.")
 
+(defproperties Container [c]
+  :components 
+  (if (or (seq? it) (vector? it))
+    (doseq [comp it] (.add c comp))
+    (.add c it))
+  (seq c)
+  "a list of components of this container, settin adds a single component or a seq/vector of components at once")
+
 ;; containers
 
 (defproperties Window [w]
+  :content (.setContent w it) (.getContent w) "the component the window encloses"
+  :owner (.setOwner w it) (.getOwner w) "the owner (another Window or Display) of this window"
   :maximized (.setMaximized w it) (.isMaximized w) "when true, maximize window over the whole display"
   :visible (.setVisible w it) (.isVisible w) "hide window when false"
   :title (.setTitle w (str it)) (.getTitle w) "the windows title"
@@ -493,7 +504,20 @@
   (with-component [w Window] 
     (when-it component (.setContent w it))))
 
-(set-documentation 'window (Window.) :keys 'component)
+(defcomponent sheet [args [component]]
+  (with-component [s Sheet]
+    (.setContent s component)))
+
+(defproperties Frame [fr]
+  :menubar (.setMenuBar fr it) (.getMenuBar fr) "the frames MenuBar object")
+
+(defcomponent frame [args [component]]
+  (with-component [fr Frame]
+    (.setContent fr component)))
+
+(set-documentation 'window (Window.) :keys 'component)           
+(set-documentation 'sheet (Sheet.) :keys 'component)
+(set-documentation 'frame (Frame.) :keys 'component)
 
 
 (defproperties BoxPane [b]
@@ -508,6 +532,7 @@
 (set-documentation 'boxpane (BoxPane.) :keys '& 'components)
 
 (defproperties Border [b]
+  :content (.setContent b it) (.getContent b) "the component to draw a border around"
   :title (.setTitle b (str it)) (.getTitle b) "The borders title.")
 
 (defcomponent border [args [component]]
@@ -890,8 +915,36 @@
   :select-mode (.setSelectMode t (get-tree-view-select-mode it)) (.getSelectMode t) ":multi :single or :none"
   :data (.setTreeData t it) (.getTreeData t) "tree data, a list of values, either plain strings or treeviews for the default renderer")
 
-(defcomponent treeview [args]
+(defcomponent tree-view [args]
   (with-component [t TreeView]))
 
-(set-documentation 'treeview (TreeView.) :keys)
+(defproperties TreeNode [t]
+  :icon (.setIcon t (get-icon it)) (.getIcon t) "a node icon"
+  :text (.setText t (str it)) (.getText t) "node label/text")
+
+(defcomponent tree-node [args]
+  (with-component [t TreeNode]))
+
+(defproperties TreeBranch [b]
+  :nodes
+  (if (or (seq? it) (vector? it)) 
+    (doseq [n it] (.add b n))
+    (.add b it))
+  (seq b)
+  "a seq or vector of nodes; setting adds them, reading shows them"
+
+  :comparator (.setComparator b it) (.getComparator b)
+  "comparator to sort the nodes in this branch (clojure fns implement the comparator interface)"
+  
+  :expanded-icon (.setExpandedIcon b (get-icon it)) (.getExpandedIcon b) "expanded icon"
+  )
+
+(defcomponent tree-branch [args tree-nodes]
+  (with-component [t TreeBranch]
+    (doseq [n tree-nodes] (.add t n))))
+
+(set-documentation 'tree-view (TreeView.) :keys)
+(set-documentation 'tree-node (TreeNode.) :keys)
+(set-documentation 'tree-branch (TreeBranch.) :keys '& 'tree-nodes)
+
 
