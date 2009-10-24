@@ -5,7 +5,8 @@
 	clojure.contrib.duck-streams
         clojure.contrib.except
 
-	hoeck.pivot.datastructures)
+	hoeck.pivot.datastructures
+        hoeck.pivot.icons)
   (:require [hoeck.pivot.Application :as app]
 	    [clojure.xml :as xml])
   (:import (org.apache.pivot.wtk DesktopApplicationContext Application Display
@@ -141,10 +142,6 @@
   (condp = keyword 
     :horiz Orientation/HORIZONTAL
     :vert Orientation/VERTICAL))
-
-(defn get-icon [key]
-  ;;look icon up in the gobal image map an return an image or nil or throw sth.
-  )
 
 (defn get-scrollbar-policy
   "Mapping from keywords to ScrollPane$ScrollBarPolicy enums."
