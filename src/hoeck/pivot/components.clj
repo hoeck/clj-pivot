@@ -513,7 +513,7 @@
 
 (defcomponent frame [args [component]]
   (with-component [fr Frame]
-    (.setContent fr component)))
+    (when component (.setContent fr component))))
 
 (set-documentation 'window (Window.) :keys 'component)           
 (set-documentation 'sheet (Sheet.) :keys 'component)
@@ -639,8 +639,8 @@
 
   :primary-region 
   (.setPrimaryRegion s (condp = it
-                                         :top-left SplitPane$Region/TOP_LEFT
-                                         :bottom-right SplitPane$Region/BOTTOM_RIGHT))
+                         :top-left SplitPane$Region/TOP_LEFT
+                         :bottom-right SplitPane$Region/BOTTOM_RIGHT))
   (.getPrimaryRegion s)
   ":top-left or :bottom-right, determines the primary region of the splitpane, eg. the one which is shown at 1.0 split ratio"
 
@@ -651,7 +651,7 @@
   :left (.setLeft s it) (.getLeft s) "the left component in a :vertical splitpane"
   :right (.setRight s it) (.getRight s) "the right component in a :vertical splitpane"
   :top (.setTop s it) (.getLeft s) "the top component in a :horizontal splitpane"
-  :top-left (.setTopLeft s it) "the top or left component")
+  :top-left (.setTopLeft s it) (.getTopLeft s) "the top or left component")
 
 (defcomponent splitpane [args]
   (with-component [sp SplitPane]))

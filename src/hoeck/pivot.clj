@@ -9,8 +9,10 @@
         hoeck.pivot.components
         hoeck.pivot.listeners)
   (:require [hoeck.pivot.Application :as app])
-  (:import (org.apache.pivot.wtk DesktopApplicationContext)
+  (:import (org.apache.pivot.wtk Component)
+           (org.apache.pivot.wtk DesktopApplicationContext)
 	   (org.apache.pivot.wtkx WTKXSerializer)
+           (org.apache.pivot.collections Dictionary)
 	   (java.net URL)))
 
 (def appstate (agent {}))
@@ -28,6 +30,9 @@
   (DesktopApplicationContext/main hoeck.pivot.Application, (into-array String ())))
 
 ;;DesktopApplicationContext/queueCallback(Runnable callback) ;; to execute things within the pivot (awt) thread
+
+(defn pivot-invoke [f]
+  (DesktopApplicationContext/queueCallback f))
 
 (defn accordion-menu []
   (accordion :preferred-size [120 300]
@@ -51,47 +56,51 @@
 		   )))
 
 
+(defn inspector-tree [c]    
+  (let [p (get-properties c)
+        components (concat (:components p) (filter #(isa? (type %) Component) (vals p)))
+        text (str (.getSimpleName (type c)) " " (-> p :user :name))]
+    (if (not (empty? components))
+      (tree-branch :text text
+                   :nodes (map inspector-tree
+                               components))
+      (tree-node :text text))))
 
-(defn component-inspector []
-  (let [inspector-click-listener (listener :component-mouse-button * 
-					   #(do (println (:int %)) true))]
-    (add-listener (@appstate :display) inspector-click-listener)))
+(defn component-inspector
+  "open a component inspector in frame in the current display"  
+  ([] (pivot-invoke #(component-inspector (@appstate :display))))
+  ([root-component]
+     (let [inspector-click-listener (listener :component-mouse-button * 
+                                              #(do (println (:int %)) true))
+           disp (@appstate :display)
+           inspector-tv (tree-view :preferred-width 300
+                                   :data (inspector-tree root-component))
+           inspector-frame (frame (boxpane 
+                                   :orientation :vert
+                                   :user {:name 'component-listener-toplevel-box}
+                                   :preferred-width 300
+                                   :preferred-height 500
+                                   (splitpane :preferred-size [300 500]
+                                              :user {:name 'my-splitpane}
+                                              :top-left (scrollpane :preferred-width 300
+                                                                    :preferred-height 800
+                                                                    :view inspector-tv)
+                                              :orientation :vert
+                                              :bottom-right (push-button :data "Detail view")
+                                              :primary-region :top-left
+                                              :split-ratio 0.6)))]
+       (add-listener (@appstate :display) inspector-click-listener)
+       (.open (frame :self inspector-frame :title "Inspector") disp))))
 
-(defn tree-view-from-hashmap [x]
-  (tree-view :data (make-list 'a 'b 'c 'd))
-  )
+
 
 (comment
-  (start-pivot)
-  
-  (let [w (window :maximized true
-		  (label :text "hier"))]
-    (show-only w)
-    (.open (frame (push-button  :data "clickme"))
-	   (@appstate :display)))
 
+  (start-pivot) 
   (show-only (main-window))
-
   (component-inspector)
-  (remove-listeners (@appstate :display))
 
-  
-  (show-only (window (tree-view :data (tree-branch (tree-node :text 'foo)
-						   (tree-branch :text 'please-expand!
-								(tree-node :text 'bar-0)
-								(tree-node :text 'bar-1)
-								(tree-node :text 'bar-2)
-								(tree-node :text 'bar-3))
-						   (tree-node :text 'baz)))))
-
-  
-  (show-only (window (.readObject (WTKXSerializer.) (URL. "file:///d:/clj/trees.wtkx"))))
-  (let [X (.readObject (WTKXSerializer.) (URL. "file:///d:/clj/trees.wtkx"))]
-    (-> X get-properties :components first get-properties :components first get-properties :components
-	second get-properties :components first get-properties :components first get-properties
-	pprint)
-    )
-  )
+)
 
 (comment
 
