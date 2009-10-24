@@ -1,0 +1,78 @@
+<project name="clj-pivot" default="jar">
+
+    <description>
+       Build with "ant -Dclojure.jar=&lt;..path to clojure.jar..&gt; -Dclojure-contrib.jar=&lt;..path to clojure-contrib.jar..&gt;"
+    </description>
+
+    <property name="src.dir" location="src"/>
+    <property name="icons.dir" location="icons"/>
+    <property name="classes.dir" location="classes"/>
+    <property name="libs.dir" location="libs"/>
+
+
+    <property name="jar.file" location="clj-pivot.jar"/>
+
+    <available property="has-clojure" file="${clojure.jar}"/>
+    <available property="has-clojure-contrib" file="${clojure-contrib.jar}"/>
+
+    <target name="init" description="create build directories">
+        <tstamp/>
+        <mkdir dir="${classes.dir}"/>
+    </target>
+    
+    <target name="gen-classes" 
+            depends="init"
+            description="generate classes">
+        <fail unless="has-clojure"> 
+  You have not defined a path to clojure.jar so I can't generate my classes. 
+  Run "ant -Dclojure.jar=&lt;...path to clojure.jar..&gt;" to tell me where clojure is.
+        </fail>
+        <fail unless="has-clojure-contrib"> 
+  You have not defined a path to clojure-contrib.jar so I can't generate my classes. 
+  Run "ant -Dclojure-contrib.jar=&lt;...path to clojure-contrib.jar..&gt;" to tell me where clojure is.
+        </fail>
+        <java classname="clojure.lang.Compile">
+            <classpath>
+                <path location="${classes.dir}"/>
+                <path location="${src.dir}"/>
+                <path location="${clojure.jar}"/>
+                <path location="${clojure-contrib.jar}"/>
+                <fileset dir="${libs.dir}">
+                  <include name="**/*.jar"/>
+                </fileset>
+            </classpath>
+            <sysproperty key="clojure.compile.path" value="${classes.dir}"/>
+            <arg value="hoeck.pivot"/>
+        </java>
+    </target>
+
+    <target name="unjar" depends="init">
+        <unjar dest="${classes.dir}">
+          <fileset dir="${libs.dir}">
+            <include name="*.jar"/>
+          </fileset>
+        </unjar>
+        <copy file="${libs.dir}/LICENSE" todir="${classes.dir}/org/apache/pivot"/>
+        <copy file="${libs.dir}/NOTICE" todir="${classes.dir}/org/apache/pivot"/>
+        <copy file="epl-v10.html" todir="${classes.dir}"/>
+    </target>
+
+    <target name="jar" depends="gen-classes, unjar"
+        description="create jar including the clj sources and AOT compiled classes">
+        <jar jarfile="${jar.file}">
+            <fileset file="epl-v10.html"/>
+            <fileset dir="${classes.dir}"/>
+            <fileset dir="${icons.dir}"/>
+            <fileset dir="${src.dir}"/>
+            <manifest>
+                <attribute name="Class-Path" value="."/>
+            </manifest>
+        </jar>
+    </target>
+
+    <target name="clean" description="clean generated files (jar and classes)">
+        <delete dir="${classes.dir}"/>
+        <delete file="${jar.file}"/>
+    </target>
+
+</project>

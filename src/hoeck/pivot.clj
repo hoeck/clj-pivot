@@ -38,15 +38,14 @@
 (defn pivot-invoke [f]
   (DesktopApplicationContext/queueCallback f))
 
-(pivot-invoke #(component-inspector (@appstate :display)))
-
 ;;;
 
 (comment
 
   (start-pivot appstate)
   (show-only (window (boxpane (boxpane (push-button :data "click")))))
-  (pivot-invoke (component-inspector (@appstate :display)))
+  (pivot-invoke #(component-inspector (@appstate :display)))
   (-> (get-properties (@appstate :display)) :components first)
+
 )
 
