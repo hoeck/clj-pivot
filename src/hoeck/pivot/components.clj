@@ -788,7 +788,7 @@
     (set-properties t (dissoc args :self))
     t))
 
-(set-documentation 'table-view (TableView.) :keys)
+(set-documentation 'table-view (TableView.) :keys 'table-view-columns)
 (set-documentation 'table-view-column (TableView$Column.) :keys)
 
 ;;http://mail-archives.apache.org/mod_mbox/incubator-pivot-user/200909.mbox/%3C168ef9ac0909080333u7113b048wd5601d87d0c34804@mail.gmail.com%3E
@@ -951,4 +951,11 @@
 (set-documentation 'tree-node (TreeNode.) :keys)
 (set-documentation 'tree-branch (TreeBranch.) :keys '& 'tree-nodes)
 
+
+;; table pane
+
+(defproperties TablePane [t])
+
+(defcomponent table-pane [args]
+  (with-component [t TablePane]))
 

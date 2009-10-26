@@ -63,14 +63,14 @@
 
 (def inspector-icon-mapping
   (let [icon-mapping {Window :application-blue
-                      Frame :application-blue
+                      Frame :application
                       Button :ui-button
                       Accordion :ui-accordion
                       BoxPane :layout
                       Checkbox :ui-check-box
                       ScrollPane :ui-scroll-pane
                       RadioButton :ui-radio-button
-                      TreeView :node
+                      TreeView :application-tree
                       ListButton :ui-combo-box
                       ListView :ui-list-box
                       TableView :table
@@ -83,32 +83,81 @@
                       StackPane :layers-stack
                       SplitPane :ui-splitter
                       CalendarButton :calendar-month
+                      Border :selection
+                      MovieView :layer-resize-actual
+                      Form :application-form
+                      TablePane :application-split-tile
                       :question :question}]
     (zipmap (keys icon-mapping)
             (map #(str "hoeck/pivot/icons/" (name %) ".png") (vals icon-mapping)))))
 
-(defn inspector-tree [c]    
+(defn inspector-tree
+  "given a pivot component, return tree of (the-component & contained-components)
+  (the model)"
+  [c]
+  (let [components (:components (get-properties c))]
+    (if (not (empty? components))
+      (cons c (map inspector-tree
+                   components))
+      (list c))))
+
+(defn inspector-tree-nodes
+  "given a component tree, return the same tree as tree-branches and tree-nodes."
+  [[c & components]]
   (let [p (get-properties c)
-        components (concat (:components p) (filter #(isa? (type %) Component) (vals p)))
         text (str (.getSimpleName (type c)) " " (-> p :user :name))
         icon (or (inspector-icon-mapping (type c))
                  (inspector-icon-mapping (when-let [t (type c)] (.getSuperclass t)))
                  (inspector-icon-mapping :question))]
     (if (not (empty? components))
-      (tree-branch :text text :icon icon
-                   :nodes (map inspector-tree
-                               components))
-      (tree-node :text text :icon icon))))
+      (tree-branch :text text 
+                   :icon icon
+                   :nodes (map inspector-tree-nodes components))
+      (tree-node :text text 
+                 :icon icon))))
+
+(defn get-component-from-tree-path
+  "given the component tree and a path, return a component"
+  [root path]
+  (if (seq path)
+    (get-component-from-tree-path (nth (next root) (first path))
+                                  (next path))
+    (first root)))
+
+(defn property-table
+  "generates table-data from the properties of a component o."
+  [o]
+  (let [props (get-properties o)
+        docs (or (get-all-property-defs o) {})]
+    (map (fn [[k v]] {'key k 'val v 'doc (:doc (docs k))})
+         props)))
+
+(defn inspector-tree-view-listener
+  "listens to inspector treeview selections and updates details
+  for the selected component"
+  [inspector-detail components-tree argmap]
+  (pprint argmap)
+  (println (seq (first (seq (:sequence argmap)))))
+  (if (= :selected-paths-changed (:method argmap))
+    (when-let [path (seq (first (seq (:sequence argmap))))]
+      (let [inspector-tree-view (:treeview argmap)
+            c (get-component-from-tree-path components-tree path)]
+        (when c (set-properties inspector-detail {:data (make-dictionary-list (property-table c))}))
+        true))
+    false))
 
 (defn component-inspector
-  "open a component inspector in frame in the current display"  
+  "open a component inspector in frame in the current display, using display as the component root." 
   ([display] (component-inspector display display))
   ([display root-component]
-     (let [inspector-click-listener (listener :component-mouse-button * 
-                                              #(do (println (:int %)) true))
-           disp display
+     (let [disp display
+           components-tree (inspector-tree display)
            inspector-tv (tree-view :preferred-width 300
-                                   :data (inspector-tree root-component))
+                                   :data (inspector-tree-nodes components-tree))
+           inspector-detail (table-view :preferred-width 300
+                                                 (table-view-column :header-data "Property" :name "key")
+                                                 (table-view-column :header-data "Value" :name "val")
+                                                 (table-view-column :header-data "Documentation" :name "doc"))
            inspector-frame (frame (boxpane 
                                    :orientation :vert
                                    :user {:name 'component-listener-toplevel-box}
@@ -120,9 +169,20 @@
                                                                     :preferred-height 800
                                                                     :view inspector-tv)
                                               :orientation :vert
-                                              :bottom-right (push-button :data "Detail view")
+                                              :bottom-right (scrollpane :preferred-width 300
+                                                                        :column-header (table-view-header :table-view inspector-detail)
+                                                                        :view inspector-detail)
                                               :primary-region :top-left
-                                              :split-ratio 0.6)))]
-       (add-listener display inspector-click-listener)
+                                              :split-ratio 0.6)))
+           tree-view-click-listener (listener :tree-view-selection *
+                                              #(inspector-tree-view-listener inspector-detail components-tree %))]
+       (add-listener inspector-tv tree-view-click-listener)
        (.open (frame :self inspector-frame :title "Inspector") disp))))
 
+
+(comment
+
+  ;; invoke the inspector
+  (hoeck.pivot/pivot-invoke #(component-inspector (@hoeck.pivot/appstate :display)))
+  
+  )

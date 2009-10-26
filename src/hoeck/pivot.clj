@@ -8,8 +8,6 @@
 
 (ns hoeck.pivot
   (:use clojure.contrib.pprint
-	clojure.contrib.prxml
-	clojure.contrib.duck-streams
         clojure.contrib.except
 
 	hoeck.pivot.datastructures
@@ -18,6 +16,7 @@
         hoeck.pivot.tools)
   (:require [hoeck.pivot.Application :as app])
   (:import (org.apache.pivot.wtk DesktopApplicationContext)
+           (org.apache.pivot.wtkx WTKXSerializer)
            (org.apache.pivot.collections Dictionary)
 	   (java.net URL)))
 
@@ -44,8 +43,12 @@
 
   (start-pivot appstate)
   (show-only (window (boxpane (boxpane (push-button :data "click")))))
+
+  (show-only (.readObject (WTKXSerializer.) (ClassLoader/getSystemResource "table_panes.wtkx")))
+
   (pivot-invoke #(component-inspector (@appstate :display)))
   (-> (get-properties (@appstate :display)) :components first)
-
+  
+  
 )
 
