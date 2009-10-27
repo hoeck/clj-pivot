@@ -136,12 +136,12 @@
   "listens to inspector treeview selections and updates details
   for the selected component"
   [inspector-detail components-tree argmap]
-  (if (#{:selected-paths-changed :selected-path-added} (:method argmap))
-    (when-let [path (seq (first (seq (:sequence argmap))))]
-      (let [inspector-tree-view (:treeview argmap)
-            c (get-component-from-tree-path components-tree path)]
-        (when c (set-properties inspector-detail {:data (make-dictionary-list (property-table c))}))
-        true))
+  (if (#{:selected-paths-changed :selected-path-added} (:method argmap))    
+    (let [tv (:tree-view argmap)]
+      (when-let [path (seq (.getSelectedPath tv))]
+        (let [c (get-component-from-tree-path components-tree path)]
+          (when c (set-properties inspector-detail {:data (make-dictionary-list (property-table c))}))
+          true)))
     false))
 
 (defn component-inspector
@@ -150,14 +150,14 @@
   ([display root-component]
      (let [disp display
            components-tree (inspector-tree display)
-           inspector-tv (tree-view :preferred-width [300 * *]
+           inspector-tv (tree-view :preferred-width [* * *]
                                    :data (inspector-tree-nodes components-tree))
-           inspector-detail (table-view :preferred-width [300 * *]
+           inspector-detail (table-view :preferred-width [100 * *]
                                         :preferred-height [100 * *]
                                         (table-view-column :header-data "Property" :name "key")
                                         (table-view-column :header-data "Value" :name "val")
-                                        (table-view-column :header-data "Documentation" :name "doc"))
-           inspector-frame (frame :preferred-width [300 * *]
+                                        (table-view-column :header-data "Documentation" :name "doc" :width 300))
+           inspector-frame (frame :preferred-width [600 * *]
                                   (boxpane
                                    :orientation :vert
                                    :user {:name 'component-listener-toplevel-box}
@@ -166,11 +166,11 @@
                                     (splitpane :preferred-width [300 * *]
                                                :preferred-height [500 * *]
                                                :user {:name 'my-splitpane}
-                                               :top-left (scrollpane :preferred-width [300 * *]
+                                               :top-left (scrollpane :preferred-width [100 * *]
                                                                      :preferred-height [50 * *]
                                                                      :view inspector-tv)
-                                               :orientation :vert
-                                               :bottom-right (scrollpane :preferred-width [300 * *]
+                                               :orientation :horiz
+                                               :bottom-right (scrollpane :preferred-width [100 * *]
                                                                          :column-header (table-view-header :table-view inspector-detail)
                                                                          :view inspector-detail)
                                                :primary-region :top-left
@@ -180,10 +180,9 @@
        (add-listener inspector-tv tree-view-click-listener)
        (.open (frame :self inspector-frame :title "Inspector") disp))))
 
-
 (comment
-
+  
   ;; invoke the inspector
   (hoeck.pivot/pivot-invoke #(component-inspector (@hoeck.pivot/appstate :display)))
-
+  
   )

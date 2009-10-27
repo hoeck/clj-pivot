@@ -33,7 +33,8 @@
                                  SplitPane SplitPane$Region
                                  TabPane Accordion BoxPane Border
 				 ScrollPane ScrollPane$ScrollBarPolicy Panorama
-                                 StackPane Frame Viewport TablePane Panel FlowPane CardPane
+                                 StackPane Frame Viewport Panel FlowPane CardPane
+                                 TablePane TablePane$Column TablePane$Row
                                  MovieView
 				 ;; buttons
 				 Button Button$Group PushButton RadioButton
@@ -467,10 +468,30 @@
                                   (vec (concat (keys (get-properties o#)) (next a#)))
                                   (vec a#)))))))
 
+;; helper macros
+
 (defmacro when-it
   "Anaphoric when using ìt'."
   [expr & body]
   `(when-let [~'it ~expr] ~@body))
+
+(defmacro set-relative-size
+  "generate a setter for optional relative-sized components:
+  method, o and arg must all be symbols as they will be evaluated more than once.
+  arg: [100] -> (method o 100 true)
+  arg: 100   -> (method o 100 false)"
+  [method o arg]
+  `(if (vector? ~arg)
+     (~method ~o (nth ~arg 0) true);; relative
+     (~method ~o ~arg false)))
+
+(defmacro get-relative-size
+ "expands into a getter-expression for optionally relative-sized components
+  method, o must all be symbols as they will be evaluated more than once."
+  [method o]
+  `(if (.isRelative ~o)
+     (vector (~method ~o))
+     (~method ~o)))
 
 ;; the definitions
 
@@ -818,8 +839,7 @@
   :header-data (.setHeaderData t it) (.getHeaderData t) "the displayed column name"
   :name (.setName t (str it)) (.getName t) "the name of the key where the data is (a string)"
   :sort-direction (.setSortDirection t (get-sort-direction it)) (.getSortDirection t) ":asc or :desc (for ascending or descending sort order)"
-  :width (.setWidth t it) (.getWidth t) "the column width"
-  :relative (.setWidth t (.getWidth t) it) (.isRelative t) "the relative flag")
+  :width (set-relative-size .setWidth t it) (get-relative-size .getWidth t) "the column width, [width] to set a relative width")
 
 (defcomponent table-view-column [args] ;; not a component, but an object with properties
   (let [t (or (:self args) (TableView$Column.))]
@@ -990,10 +1010,36 @@
 (set-documentation tree-branch (TreeBranch.) :keys & tree-nodes)
 
 ;; table pane
-
 ;; todo
-(defproperties TablePane [t])
+(defproperties TablePane [t]
+  :rows  
+  (let [rowseq (.getRows t)]
+    (doseq [r it] (.add rowseq r)))
+  (seq (.getRows t))
+  "the tables rows, a sequence, create one with table-pane-rows"
+
+  :cols
+  (let [colseq (.getColumns t)]
+    (doseq [c it] (.add colseq c)))
+  (seq (.getColumns t))
+  "the tables rows, a sequence, create one with table-pane-rows")
 
 (defcomponent table-pane [args]
   (with-component [t TablePane]))
+
+(defproperties TablePane$Column [c]
+  :width (set-relative-size .setWidth c it) (get-relative-size .getWidth c) "width, [10] means a relative width."
+  :highlited (.setHighlighted c (boolean it)) (.isHighlighted c) "highlighted flag")
+
+(defcomponent table-pane-column [args]
+  (with-component [c TablePane$Column]))
+
+(defproperties TablePane$Row [r]
+  :height (set-relative-size .setHeight r it) (get-relative-size .getHeight r) "height, [10] means a relative height."
+  :highlighted (.setHighlighted r (boolean it)) (.isHighlighted r) "highlighted flag"
+  :visible (.setVisible r (boolean it)) (.isVisible r) "row visibility flag")
+
+(defcomponent table-pane-row [args components]
+  (with-component [r TablePane$Row]
+    (doseq [c components] (.add r c))))
 

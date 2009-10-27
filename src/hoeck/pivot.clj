@@ -48,7 +48,6 @@
 
   (pivot-invoke #(component-inspector (@appstate :display)))
   (-> (get-properties (@appstate :display)) :components first)
-  
-  
+   
 )
 
