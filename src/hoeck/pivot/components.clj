@@ -6,6 +6,15 @@
 ;   the terms of this license.
 ;   You must not remove this notice, or any other, from this software.
 
+;; NOTES:
+;; * get-property returns nil if a component-getter throws an exception, this may happen
+;;   sometimes when getting preferred size limits or when setting a preferred size outside
+;;   of previously set limits
+;; * when setting unsupported styles of a component, pivot prints a warning 
+;;   (to the *inferior-lisp* buffer)
+;; * to disable runtime doc-generation, set the "hoeck.pivot.components.no-documentation" 
+;;   property to "true"
+
 (ns hoeck.pivot.components
   (:use clojure.contrib.pprint
 	clojure.contrib.prxml
@@ -113,6 +122,7 @@
     :plain Font/PLAIN
     :bold Font/BOLD))
 
+;; todo: add more style keywords
 ;; a map of style-keywords to [styleStringKey function]
 (def style-setters 
      {:padding ["padding" make-insets]
@@ -125,7 +135,8 @@
       :width ["width" identity]
       :focusable ["focusable" identity]
       :button-padding ["buttonPadding" make-insets]
-      :font ["font" (fn [[name style size]] (Font. name (get-font-style style) size))]})
+      :font ["font" (fn [[name style size]] (Font. name (get-font-style style) size))]
+      :fill ["fill" boolean]})
 
 (defn set-styles
   "set the style of a component using style-setters to translate requests to pivot."
@@ -133,6 +144,7 @@
   (let [sd (.getStyles component)]
     (doseq [[k v] style-map]
       (let [[key f] (style-setters k)]
+        (when (nil? f) (throwf "no setter for style %s" k))
         (.put sd key (f v))))
     component))
 
@@ -423,10 +435,12 @@
 (defn get-properties
   "Return all known properties of an object"
   [o]
-  (let [p (get-all-property-defs o)]
-    (into {} (map (fn [[k {:keys [getter]}]]
-		    (when getter [k (getter o)]))
-		  p))))
+  (if (nil? o)
+    (println "warn: get-properties: object is null")
+    (let [p (get-all-property-defs o)]
+      (into {} (map (fn [[k {:keys [getter]}]]
+                      (when getter [k (try (getter o) (catch Exception e nil))]))
+                    p)))))
 
 (defn doc-properties
   "return a docstring made up of the objects properties"
@@ -434,19 +448,24 @@
   (let [p (get-all-property-defs o)]
     (apply str (map (fn [[k {:keys [doc]}]] (str k " .. " doc \newline)) p))))
 
-(defn set-documentation
-  "generate docstrings from property docs."
-  [var o & arglist-spec]
-  (alter-meta! (resolve var)
-               assoc
-               :doc (str "Returns a new or existing (given with :self) "
-			 (type o) " with the given properties set" \newline
-			 (doc-properties o))
-               :arglists (if (= [:keys] arglist-spec)
-                           (list (vec (keys (get-properties o))))
-                           (if (= (first arglist-spec) :keys)
-                             (vec (concat (keys (get-properties o)) (next arglist-spec)))
-                             (vec arglist-spec)))))
+(defmacro set-documentation
+  "generate extended docstrings from property docs, generate no documentation at all when
+  the \"hoeck.pivot.components.no-documentation\" property is set to \"true\"."
+  [var o & arglist-spec]  
+  (if (= (System/getProperty "hoeck.pivot.components.no-documentation") "true")
+    nil
+    `(let [o# ~o
+           a# '~arglist-spec]
+       (alter-meta! (resolve '~var)
+                    assoc
+                    :doc (str "Returns a new or existing (given with :self) "
+                              (type o#) " with the given properties set" \newline
+                              (doc-properties o#))
+                    :arglists (if (= [:keys] a#)
+                                (list (vec (keys (get-properties o#))))
+                                (if (= (first a#) :keys)
+                                  (vec (concat (keys (get-properties o#)) (next a#)))
+                                  (vec a#)))))))
 
 (defmacro when-it
   "Anaphoric when using ìt'."
@@ -455,29 +474,45 @@
 
 ;; the definitions
 
+(defn set-component-width [c sizedef]
+  (let [[min pref max] (if (vector? sizedef) sizedef [* sizedef *])]
+    (when (not= min *) (.setMinimumPreferredWidth c min))
+    (when (not= pref *) (.setPreferredWidth c pref))
+    (when (not= max *) (.setMaximumPreferredWidth c max))))
+
+(defn set-component-height [c sizedef]
+  (let [[min pref max] (if (vector? sizedef) sizedef [* sizedef *])]
+    (when (not= min *) (.setMinimumPreferredHeight c min))
+    (when (not= pref *) (.setPreferredHeight c pref))
+    (when (not= max *) (.setMaximumPreferredHeight c max))))
+
 (defproperties Component [c]
   :enabled (.setEnabled c it) (.isEnabled c) "Enabled status."
   :height (.setHeight c it) (.getHeight c) "Height"
   :width (.setWidth c it) (.getWidth c) "Width"
+  :visible (.setVisible c it) (.isVisible c) "Visible flag"
   
   :preferred-width
-  (if (vector? it) 
-    (let [[min max] it] (.setPreferredWidthLimits c min max))
-    (.setPreferredWidth c it)) 
-  nil
-  "Set the preferred width of the Component. Can be a single number or a vector of [min max]."
+  (set-component-width c it)  
+  [(.getMinimumPreferredWidth c) (.getPreferredWidth c) (.getMaximumPreferredWidth c)]
+  "Set the preferred width of the Component. Can be a single number (= pref) or a vector of [min pref max],
+  where min, pref, max are numbers or `*' where the latter indicates leave-value-as-is."
   
   :preferred-height
-  (if (vector? it)
-    (let [[min max] it] (.setPreferredHeightLimits c min max))
-    (.setPreferredHeight c it))
-  nil
-  "Set the preferred height of the Component. Can be a single number or a vector of [min max]."
+  (set-component-height c it)  
+  [(.getMinimumPreferredHeight c) (.getPreferredHeight c) (.getMaximumPreferredHeight c)]
+  "Set the preferred height of the Component. Can be a single number (= pref) or a vector of [min pref max],
+  where min, pref, max are numbers or `*' where the latter indicates leave-value-as-is."
 
   :preferred-size
   (let [[x y] it] (.setPreferredSize c x y))
-  nil
+  [(.getPreferredWidth c) (.getPreferredHeight c)]
   "Preferred size of the component, a vector of [width height]"
+
+  :tooltip-text
+  (.setTooltipText c (str it))
+  (.getTooltipText c)
+  "a string"
 
   :styles (set-styles c it) (dictionary->hashmap (.getStyles c)) "A map of styles for the component."
 
@@ -519,9 +554,9 @@
   (with-component [fr Frame]
     (when component (.setContent fr component))))
 
-(set-documentation 'window (Window.) :keys 'component)           
-(set-documentation 'sheet (Sheet.) :keys 'component)
-(set-documentation 'frame (Frame.) :keys 'component)
+(set-documentation window (Window.) :keys component)
+(set-documentation sheet (Sheet.) :keys component)
+(set-documentation frame (Frame.) :keys component)
 
 
 (defproperties BoxPane [b]
@@ -532,8 +567,8 @@
   (with-component [b BoxPane]
     (doseq [c components] (.add b c))))
 
-(set-documentation 'boxpane (BoxPane.) :keys '& 'components)
-(set-documentation 'boxpane (BoxPane.) :keys '& 'components)
+(set-documentation boxpane (BoxPane.) :keys & components)
+
 
 (defproperties Border [b]
   :content (.setContent b it) (.getContent b) "the component to draw a border around"
@@ -543,7 +578,7 @@
   (with-component [b Border]
     (when-it component (.setContent b it))))
 
-(set-documentation 'border (Border.) :keys 'component)
+(set-documentation border (Border.) :keys component)
 
 
 (defproperties Accordion [a]
@@ -554,6 +589,7 @@
     (doseq [acc-panel-f accordion-panels]
       (acc-panel-f a))))
 
+;; todo: handle :self in accordion-panel
 (defcomponent accordion-panel [args [component]];; meta component for accordion panels
   (fn [accordion]
     (.add (.getPanels accordion) component)
@@ -561,7 +597,7 @@
     (when-it (:icon args) (Accordion/setIcon component (get-icon it)))
     component))
 
-(set-documentation 'accordion (Accordion.) :keys '& 'accordion-panels)
+(set-documentation accordion (Accordion.) :keys & accordion-panels)
 (alter-meta! #'accordion-panel assoc :doc
 	     (str "create a accordion-panel closure to add to hold a single component shown in an accordion." \newline
 		  "  :label .. the label of the accordion panel" \newline
@@ -576,7 +612,7 @@
   (with-component [p CardPane]
     (doseq [c components] (.add p c))))
 
-(set-documentation 'cardpane (CardPane.) :keys '& 'components)
+(set-documentation cardpane (CardPane.) :keys & components)
 
 
 ;; forms
@@ -586,6 +622,7 @@
     (doseq [add-section-f form-sections]
       (add-section-f fm))))
 
+;; todo: handle :self
 (defcomponent form-section [args form-component-functions]
   (fn [form]
     (let [sec (or (:self args) (Form$Section.))]
@@ -594,13 +631,14 @@
         (add-form-component-f sec))
       (when-it (:heading args) (.setHeading sec (str it))))))
 
+;; todo: handle :self
 (defcomponent form-component [args [component]]
   (fn [section]
     (.add section component)
     (when-it (:label args) (Form/setLabel component (str it)))
     component))
 
-(set-documentation 'form (Form.) :keys '& 'form-sections)
+(set-documentation form (Form.) :keys & form-sections)
 (alter-meta! #'form-section assoc :doc
 	     (str "returns a form section from mutliple form.components" \newline
 		  "  :heading .. an optional heading for the section")
@@ -629,7 +667,7 @@
     (when-it (:label args) (TabPane/setLabel component it))
     (when-it (:icon args) (TabPane/setIcon component (get-icon it)))))
 
-(set-documentation 'tabpane (TabPane.) :keys '& 'tabpane-panels)
+(set-documentation tabpane (TabPane.) :keys & tabpane-panels)
 (alter-meta! #'tabpane-panel assoc :doc
 	     (str "returns a tabpane-panel from a component" \newline
 		  "  :closeable .. user may close the tabpane" \newline
@@ -660,8 +698,7 @@
 (defcomponent splitpane [args]
   (with-component [sp SplitPane]))
 
-(set-documentation 'splitpane (SplitPane.) :keys)
-
+(set-documentation splitpane (SplitPane.) :keys)
 
 ;; views
 
@@ -696,8 +733,8 @@
   (with-component [p Panorama]
     (doseq [c components] (.add p c))))
 
-(set-documentation 'scrollpane (ScrollPane.) :keys)
-(set-documentation 'panorama (Panorama.) :keys)
+(set-documentation scrollpane (ScrollPane.) :keys)
+(set-documentation panorama (Panorama.) :keys)
 
 ;; components
 
@@ -709,7 +746,7 @@
   (with-component [sl Slider]
     (doseq [c components] (.add sl c))))
 
-(set-documentation 'slider (Slider.) :keys)
+(set-documentation slider (Slider.) :keys)
 
 ;; text
 
@@ -742,9 +779,10 @@
 (defcomponent text-area [args]
   (with-component [ta TextArea]))
 
-(set-documentation 'label (Label.) :keys)
-(set-documentation 'text-input (TextInput.) :keys)
-(set-documentation 'text-area (TextArea.) :keys)
+(set-documentation label (Label.) :keys)
+(set-documentation text-input (TextInput.) :keys)
+(set-documentation text-area (TextArea.) :keys)
+
 
 ;; tables
 
@@ -788,8 +826,8 @@
     (set-properties t (dissoc args :self))
     t))
 
-(set-documentation 'table-view (TableView.) :keys 'table-view-columns)
-(set-documentation 'table-view-column (TableView$Column.) :keys)
+(set-documentation table-view (TableView.) :keys table-view-columns)
+(set-documentation table-view-column (TableView$Column.) :keys)
 
 ;;http://mail-archives.apache.org/mod_mbox/incubator-pivot-user/200909.mbox/%3C168ef9ac0909080333u7113b048wd5601d87d0c34804@mail.gmail.com%3E
 ;;> Can I invoke the editor in my code rather than relying on a double click to
@@ -809,7 +847,7 @@
 (defcomponent table-view-header [args]
   (with-component [t TableViewHeader]))
 
-(set-documentation 'table-view-header (TableViewHeader.) :keys)
+(set-documentation table-view-header (TableViewHeader.) :keys)
 
 ;; buttons
 
@@ -849,11 +887,11 @@
 (defcomponent list-button [args]
   (with-component [l ListButton]))
 
-(set-documentation 'push-button (PushButton.) :keys)
-(set-documentation 'radio-button (RadioButton.) :keys)
-(set-documentation 'checkbox (Checkbox.) :keys)
-(set-documentation 'link-button (LinkButton.) :keys)
-(set-documentation 'list-button (ListButton.) :keys)
+(set-documentation push-button (PushButton.) :keys)
+(set-documentation radio-button (RadioButton.) :keys)
+(set-documentation checkbox (Checkbox.) :keys)
+(set-documentation link-button (LinkButton.) :keys)
+(set-documentation list-button (ListButton.) :keys)
 
 (defproperties CalendarButton [c]
   :locale (.setLocale c it) (.getLocale c) "the java.util.Locale the calendar uses"
@@ -869,7 +907,7 @@
 (defcomponent calendar-button [args]
   (with-component [c CalendarButton]))
 
-(set-documentation 'calendar-button (CalendarButton.) :keys)
+(set-documentation calendar-button (CalendarButton.) :keys)
 
 
 ;; listview
@@ -894,7 +932,7 @@
 (defcomponent listview [args]
   (with-component [l ListView]))
 
-(set-documentation 'listview (ListView.) :keys)
+(set-documentation listview (ListView.) :keys)
 
 ;; treeview
 
@@ -947,13 +985,13 @@
   (with-component [t TreeBranch]
     (doseq [n tree-nodes] (.add t n))))
 
-(set-documentation 'tree-view (TreeView.) :keys)
-(set-documentation 'tree-node (TreeNode.) :keys)
-(set-documentation 'tree-branch (TreeBranch.) :keys '& 'tree-nodes)
-
+(set-documentation tree-view (TreeView.) :keys)
+(set-documentation tree-node (TreeNode.) :keys)
+(set-documentation tree-branch (TreeBranch.) :keys & tree-nodes)
 
 ;; table pane
 
+;; todo
 (defproperties TablePane [t])
 
 (defcomponent table-pane [args]

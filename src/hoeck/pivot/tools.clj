@@ -136,9 +136,7 @@
   "listens to inspector treeview selections and updates details
   for the selected component"
   [inspector-detail components-tree argmap]
-  (pprint argmap)
-  (println (seq (first (seq (:sequence argmap)))))
-  (if (= :selected-paths-changed (:method argmap))
+  (if (#{:selected-paths-changed :selected-path-added} (:method argmap))
     (when-let [path (seq (first (seq (:sequence argmap))))]
       (let [inspector-tree-view (:treeview argmap)
             c (get-component-from-tree-path components-tree path)]
@@ -152,28 +150,31 @@
   ([display root-component]
      (let [disp display
            components-tree (inspector-tree display)
-           inspector-tv (tree-view :preferred-width 300
+           inspector-tv (tree-view :preferred-width [300 * *]
                                    :data (inspector-tree-nodes components-tree))
-           inspector-detail (table-view :preferred-width 300
-                                                 (table-view-column :header-data "Property" :name "key")
-                                                 (table-view-column :header-data "Value" :name "val")
-                                                 (table-view-column :header-data "Documentation" :name "doc"))
-           inspector-frame (frame (boxpane 
+           inspector-detail (table-view :preferred-width [300 * *]
+                                        :preferred-height [100 * *]
+                                        (table-view-column :header-data "Property" :name "key")
+                                        (table-view-column :header-data "Value" :name "val")
+                                        (table-view-column :header-data "Documentation" :name "doc"))
+           inspector-frame (frame :preferred-width [300 * *]
+                                  (boxpane
                                    :orientation :vert
                                    :user {:name 'component-listener-toplevel-box}
-                                   :preferred-width 300
-                                   :preferred-height 500
-                                   (splitpane :preferred-size [300 500]
-                                              :user {:name 'my-splitpane}
-                                              :top-left (scrollpane :preferred-width 300
-                                                                    :preferred-height 800
-                                                                    :view inspector-tv)
-                                              :orientation :vert
-                                              :bottom-right (scrollpane :preferred-width 300
-                                                                        :column-header (table-view-header :table-view inspector-detail)
-                                                                        :view inspector-detail)
-                                              :primary-region :top-left
-                                              :split-ratio 0.6)))
+                                   :styles {:fill true}
+                                   (border
+                                    (splitpane :preferred-width [300 * *]
+                                               :preferred-height [500 * *]
+                                               :user {:name 'my-splitpane}
+                                               :top-left (scrollpane :preferred-width [300 * *]
+                                                                     :preferred-height [50 * *]
+                                                                     :view inspector-tv)
+                                               :orientation :vert
+                                               :bottom-right (scrollpane :preferred-width [300 * *]
+                                                                         :column-header (table-view-header :table-view inspector-detail)
+                                                                         :view inspector-detail)
+                                               :primary-region :top-left
+                                               :split-ratio 0.6))))
            tree-view-click-listener (listener :tree-view-selection *
                                               #(inspector-tree-view-listener inspector-detail components-tree %))]
        (add-listener inspector-tv tree-view-click-listener)
@@ -184,5 +185,5 @@
 
   ;; invoke the inspector
   (hoeck.pivot/pivot-invoke #(component-inspector (@hoeck.pivot/appstate :display)))
-  
+
   )
