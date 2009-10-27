@@ -45,9 +45,25 @@
   (show-only (window (boxpane (boxpane (push-button :data "click")))))
 
   (show-only (.readObject (WTKXSerializer.) (ClassLoader/getSystemResource "table_panes.wtkx")))
-
+  
   (pivot-invoke #(component-inspector (@appstate :display)))
   (-> (get-properties (@appstate :display)) :components first)
-   
+  
+
+  (show-only (window 
+              :maximized true
+              (boxpane
+               :styles {:fill true}
+               (border
+                (table-pane :cols [[1] [1] [1] [10]]
+                            (table-pane-row (label :text "das")
+                                            (label :text "ist")
+                                            (label :text "eine")
+                                            (label :text "zeile"))
+                            (table-pane-row (push-button :data "mit")
+                                            (push-button :data "vier")
+                                            (push-button :data "push")
+                                            (push-button :data "Buttons")))))))
+  
 )
 

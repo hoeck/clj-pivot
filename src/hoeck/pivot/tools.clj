@@ -132,6 +132,7 @@
     (map (fn [[k v]] {'key k 'val v 'doc (:doc (docs k))})
          props)))
 
+(def selected-component (atom nil))
 (defn inspector-tree-view-listener
   "listens to inspector treeview selections and updates details
   for the selected component"
@@ -140,9 +141,14 @@
     (let [tv (:tree-view argmap)]
       (when-let [path (seq (.getSelectedPath tv))]
         (let [c (get-component-from-tree-path components-tree path)]
+          (reset! selected-component c)
           (when c (set-properties inspector-detail {:data (make-dictionary-list (property-table c))}))
           true)))
     false))
+
+(defn inspector-tree-key-listener [tree-view argmap]
+  (println (:int argmap))
+  false)
 
 (defn component-inspector
   "open a component inspector in frame in the current display, using display as the component root." 
@@ -174,10 +180,10 @@
                                                                          :column-header (table-view-header :table-view inspector-detail)
                                                                          :view inspector-detail)
                                                :primary-region :top-left
-                                               :split-ratio 0.6))))
-           tree-view-click-listener (listener :tree-view-selection *
-                                              #(inspector-tree-view-listener inspector-detail components-tree %))]
-       (add-listener inspector-tv tree-view-click-listener)
+                                               :split-ratio 0.6))))]
+       (add-listener inspector-tv (listener :tree-view-selection *
+                                              #(inspector-tree-view-listener inspector-detail components-tree %)))
+       ;;(add-listener inspector-tv (listener :component-key * #(inspector-tree-key-listener inspector-tv %)))
        (.open (frame :self inspector-frame :title "Inspector") disp))))
 
 (comment
@@ -185,4 +191,5 @@
   ;; invoke the inspector
   (hoeck.pivot/pivot-invoke #(component-inspector (@hoeck.pivot/appstate :display)))
   
+   
   )

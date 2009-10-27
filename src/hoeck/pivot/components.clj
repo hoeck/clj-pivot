@@ -1009,23 +1009,8 @@
 (set-documentation tree-node (TreeNode.) :keys)
 (set-documentation tree-branch (TreeBranch.) :keys & tree-nodes)
 
+
 ;; table pane
-;; todo
-(defproperties TablePane [t]
-  :rows  
-  (let [rowseq (.getRows t)]
-    (doseq [r it] (.add rowseq r)))
-  (seq (.getRows t))
-  "the tables rows, a sequence, create one with table-pane-rows"
-
-  :cols
-  (let [colseq (.getColumns t)]
-    (doseq [c it] (.add colseq c)))
-  (seq (.getColumns t))
-  "the tables rows, a sequence, create one with table-pane-rows")
-
-(defcomponent table-pane [args]
-  (with-component [t TablePane]))
 
 (defproperties TablePane$Column [c]
   :width (set-relative-size .setWidth c it) (get-relative-size .getWidth c) "width, [10] means a relative width."
@@ -1033,6 +1018,28 @@
 
 (defcomponent table-pane-column [args]
   (with-component [c TablePane$Column]))
+
+(defproperties TablePane [t]
+  :rows  
+  (let [rowseq (.getRows t)]    
+    (doseq [r it] (.add rowseq r)))
+  (seq (.getRows t))
+  "the tables rows, a sequence, create one with table-pane-rows; setting adds rows"
+
+  :cols
+  (let [colseq (.getColumns t)]
+    (doseq [c it]
+      (.add colseq
+            (if (or (number? c) (vector? c))
+              (table-pane-column :width c)
+              c))))
+  (seq (.getColumns t))
+  "the tables rows, a sequence, create one with table-pane-rows or supply a vector of
+  widths")
+
+(defcomponent table-pane [args rows]
+  (with-component [t TablePane]
+    (set-properties t {:rows rows})))
 
 (defproperties TablePane$Row [r]
   :height (set-relative-size .setHeight r it) (get-relative-size .getHeight r) "height, [10] means a relative height."
@@ -1043,3 +1050,6 @@
   (with-component [r TablePane$Row]
     (doseq [c components] (.add r c))))
 
+(set-documentation table-pane (TablePane.) :keys & rows)
+(set-documentation table-pane-column (TablePane$Column.) :keys)
+(set-documentation table-pane-row (TablePane$Row.) :keys & components)
