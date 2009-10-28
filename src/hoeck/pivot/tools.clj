@@ -150,10 +150,11 @@
   (println (:int argmap))
   false)
 
+(def current-inspector-frame (atom nil))
 (defn component-inspector
   "open a component inspector in frame in the current display, using display as the component root." 
-  ([display] (component-inspector display display))
-  ([display root-component]
+  ([display] (component-inspector display display @current-inspector-frame))
+  ([display root-element container-frame] ;; the container to display in
      (let [disp display
            components-tree (inspector-tree display)
            inspector-tv (tree-view :preferred-width [* * *]
@@ -163,32 +164,39 @@
                                         (table-view-column :header-data "Property" :name "key")
                                         (table-view-column :header-data "Value" :name "val")
                                         (table-view-column :header-data "Documentation" :name "doc" :width 300))
-           inspector-frame (frame :preferred-width [600 * *]
-                                  (boxpane
-                                   :orientation :vert
-                                   :user {:name 'component-listener-toplevel-box}
-                                   :styles {:fill true}
-                                   (border
-                                    (splitpane :preferred-width [300 * *]
-                                               :preferred-height [500 * *]
-                                               :user {:name 'my-splitpane}
-                                               :top-left (scrollpane :preferred-width [100 * *]
-                                                                     :preferred-height [50 * *]
-                                                                     :view inspector-tv)
-                                               :orientation :horiz
-                                               :bottom-right (scrollpane :preferred-width [100 * *]
-                                                                         :column-header (table-view-header :table-view inspector-detail)
-                                                                         :view inspector-detail)
-                                               :primary-region :top-left
-                                               :split-ratio 0.6))))]
+           inspector-component (boxpane
+                                :orientation :vert
+                                :user {:name 'component-listener-toplevel-box}
+                                :styles {:fill true}
+                                (border
+                                 (splitpane :preferred-width [300 * *]
+                                            :preferred-height [500 * *]
+                                            :user {:name 'my-splitpane}
+                                            :top-left (scrollpane :preferred-width [100 * *]
+                                                                  :preferred-height [50 * *]
+                                                                  :view inspector-tv)
+                                            :orientation :horiz
+                                            :bottom-right (scrollpane :preferred-width [100 * *]
+                                                                      :column-header (table-view-header :table-view inspector-detail)
+                                                                      :view inspector-detail)
+                                            :primary-region :top-left
+                                            :split-ratio 0.6)))]
        (add-listener inspector-tv (listener :tree-view-selection *
                                               #(inspector-tree-view-listener inspector-detail components-tree %)))
        ;;(add-listener inspector-tv (listener :component-key * #(inspector-tree-key-listener inspector-tv %)))
-       (.open (frame :self inspector-frame :title "Inspector") disp))))
+       (if container-frame
+         (frame :self container-frame :content inspector-component)
+         (let [f (frame :preferred-width [600 * *]
+                        :title "Inspector"
+                        :user {:name `inspector-frame}
+                        :content inspector-component)]
+           (do (.open f disp)
+               (reset! current-inspector-frame f)))))))
 
 (comment
   
   ;; invoke the inspector
+  (reset! current-inspector-frame nil)
   (hoeck.pivot/pivot-invoke #(component-inspector (@hoeck.pivot/appstate :display)))
   
    

@@ -47,23 +47,24 @@
   (show-only (.readObject (WTKXSerializer.) (ClassLoader/getSystemResource "table_panes.wtkx")))
   
   (pivot-invoke #(component-inspector (@appstate :display)))
+
   (-> (get-properties (@appstate :display)) :components first)
   
-
+  (set-properties @selected-component {:preferred-width [20 200 *]})
   (show-only (window 
               :maximized true
               (boxpane
                :styles {:fill true}
                (border
                 (table-pane :cols [[1] [1] [1] [10]]
-                            (table-pane-row (label :text "das")
-                                            (label :text "ist")
-                                            (label :text "eine")
-                                            (label :text "zeile"))
-                            (table-pane-row (push-button :data "mit")
-                                            (push-button :data "vier")
+                            (table-pane-row (label :text "this")
+                                            (label :text "is")
+                                            (label :text "a")
+                                            (label :text "long row"))
+                            (table-pane-row (push-button :data "with")
+                                            (push-button :data "four")
                                             (push-button :data "push")
-                                            (push-button :data "Buttons")))))))
+                                            (push-button :data "buttons")))))))
   
 )
 
