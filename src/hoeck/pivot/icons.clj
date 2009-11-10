@@ -28,5 +28,6 @@
   (cond (or (symbol? arg) (string? arg))
           (or (get-icon-from-ressource-path arg)
               (not-found-icon))
-        (isa? arg Image) arg))
+        (isa? arg Image) arg
+	:else (not-found-icon)))
 

@@ -153,10 +153,11 @@
 (def current-inspector-frame (atom nil))
 (defn component-inspector
   "open a component inspector in frame in the current display, using display as the component root." 
-  ([display] (component-inspector display display @current-inspector-frame))
+  ([display] (reset! current-inspector-frame
+		     (component-inspector display display @current-inspector-frame)))
   ([display root-element container-frame] ;; the container to display in
      (let [disp display
-           components-tree (inspector-tree display)
+           components-tree (inspector-tree root-element)
            inspector-tv (tree-view :preferred-width [* * *]
                                    :data (inspector-tree-nodes components-tree))
            inspector-detail (table-view :preferred-width [100 * *]
@@ -185,19 +186,22 @@
                                               #(inspector-tree-view-listener inspector-detail components-tree %)))
        ;;(add-listener inspector-tv (listener :component-key * #(inspector-tree-key-listener inspector-tv %)))
        (if container-frame
-         (frame :self container-frame :content inspector-component)
+	 (do (.moveToFront container-frame)
+	     (frame :self container-frame :content inspector-component))
          (let [f (frame :preferred-width [600 * *]
                         :title "Inspector"
                         :user {:name `inspector-frame}
                         :content inspector-component)]
            (do (.open f disp)
-               (reset! current-inspector-frame f)))))))
+               f))))))
 
 (comment
   
   ;; invoke the inspector
   (reset! current-inspector-frame nil)
-  (hoeck.pivot/pivot-invoke #(component-inspector (@hoeck.pivot/appstate :display)))
-  
-   
+  (hoeck.pivot/pivot-invoke #(component-inspector (@hoeck.pivot/appstate :display)))  
+
+  (frame :self @current-inspector-frame :preferred-width [800 * *] :preferred-height 550)
+
+  (.moveToFront @current-inspector-frame)
   )

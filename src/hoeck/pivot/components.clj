@@ -558,7 +558,7 @@
   :maximized (.setMaximized w it) (.isMaximized w) "when true, maximize window over the whole display"
   :visible (.setVisible w it) (.isVisible w) "hide window when false"
   :title (.setTitle w (str it)) (.getTitle w) "the windows title"
-  :icon (.setIcon w (get-icon it)) (.getIcon w) "the windows icon, a keyword or an Image object.")
+  :icon (when-it (get-icon it) (.setIcon w it)) (.getIcon w) "the windows icon, a keyword or an Image object.")
 
 (defcomponent window [args [component]]
   (with-component [w Window] 
@@ -615,7 +615,7 @@
   (fn [accordion]
     (.add (.getPanels accordion) component)
     (when-it (:label args) (Accordion/setLabel component (str it)))
-    (when-it (:icon args) (Accordion/setIcon component (get-icon it)))
+    (when-it (:icon args) (when-it (get-icon it) (Accordion/setIcon component it)))
     component))
 
 (set-documentation accordion (Accordion.) :keys & accordion-panels)
@@ -686,7 +686,7 @@
     (.add tab-sequence component)
     (when-it (:closeable args) (TabPane/setCloseable component it))
     (when-it (:label args) (TabPane/setLabel component it))
-    (when-it (:icon args) (TabPane/setIcon component (get-icon it)))))
+    (when-it (:icon args) (when-it (get-icon it) (TabPane/setIcon component it)))))
 
 (set-documentation tabpane (TabPane.) :keys & tabpane-panels)
 (alter-meta! #'tabpane-panel assoc :doc
@@ -981,7 +981,7 @@
   (with-component [t TreeView]))
 
 (defproperties TreeNode [t]
-  :icon (.setIcon t (get-icon it)) (.getIcon t) "a node icon"
+  :icon (when-it (get-icon it) (.setIcon t it)) (.getIcon t) "a node icon"
   :text (.setText t (str it)) (.getText t) "node label/text")
 
 (defcomponent tree-node [args]
@@ -998,7 +998,7 @@
   :comparator (.setComparator b it) (.getComparator b)
   "comparator to sort the nodes in this branch (clojure fns implement the comparator interface)"
   
-  :expanded-icon (.setExpandedIcon b (get-icon it)) (.getExpandedIcon b) "expanded icon"
+  :expanded-icon (when-it (get-icon it) (.setExpandedIcon b it)) (.getExpandedIcon b) "expanded icon"
   )
 
 (defcomponent tree-branch [args tree-nodes]
