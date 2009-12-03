@@ -54,7 +54,8 @@
                                          QueueListener
                                          SetListener
                                          StackListener)
-           (org.apache.pivot.util ListenerList)))
+           (org.apache.pivot.util ListenerList)
+	   (java.lang.reflect ParameterizedType)))
 
 (def listeners [;; org.apache.pivot.wtk.*		
 		AccordionAttributeListener AccordionListener
@@ -236,17 +237,21 @@
 
 ;; listeners: adding & removing
 
-(defn- listener-list-getter?
+(defn listener-list-getter?
   "decide wether a given java.lang.reflect.Method is a ListenerList getter method,
   eg: compnent.getComponentMouseListers()"
   [method]
   (and (-> method .getReturnType (isa? ListenerList))
        (re-matches #"get.*Listeners" (-> method .getName))))
 
-(defn- get-listener-list-getter-type
-  "return the element type of a ListenerList"
+(defn get-listener-list-getter-type
+  "Given a ListenerList getter, return the element type of a that ListenerList.
+  When the element type is a ParameterizedType, return its raw type (a simple class)."
   [ll-getter-method]
-  (first (.getActualTypeArguments (.getGenericReturnType ll-getter-method))))
+  (let [rtype (first (.getActualTypeArguments (.getGenericReturnType ll-getter-method)))]
+    (if (instance? ParameterizedType rtype)
+      (.getRawType rtype)
+      rtype)))
 
 (defn get-listener-list-getters
   "Return a seq of string representing ListenerList getters of object. Given a
@@ -273,7 +278,7 @@
                                    (mapcat #(.getMethods %) 
                                            hoeck.pivot.components/components)))]
     (zipmap (map #(-> % get-listener-list-getter-type .getName symbol) lgetters)
-            (map #(-> % .getName) lgetters))))  
+            (map #(-> % .getName) lgetters))))
 
 ;; use reflection to add or remove listeners
 
@@ -382,7 +387,10 @@
       MenuListener "getMenuListeners",
       CalendarButtonListener "getCalendarButtonListeners",
       TextInputTextListener "getTextInputTextListeners",
-      FormListener "getFormListeners"})
+      FormListener "getFormListeners"
+      ;; CollectionListeners
+      ListListener "getListListeners"
+      })
 
 (defn get-listener-list [object listener]
   (let [g (first (get-listener-list-getters object listener))
