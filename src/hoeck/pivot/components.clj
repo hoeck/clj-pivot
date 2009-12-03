@@ -295,7 +295,9 @@
   Upon an edit request, edit-f is called with 3 arguments:
     table-view, row-index, column-index
   and should do whatever possible to edit the given cell at the given
-  indices, e.g.: open a popup with a component (TextInput ..) in it."
+  indices, e.g.: open a popup with a component (TextInput ..) in it.
+  on other methods, edit-f is called with a single keyword argument:
+  :cancel on .cancel, :editing? on .isEditing and :save on .save."
   [edit-f]
   (proxy [TableView$RowEditor] []
     (edit [table-view, row-index, column-index]
@@ -316,7 +318,7 @@
     (condp = key
       :row (TableViewRowEditor.)
       :cell (TableViewCellEditor.))
-    (make-row-editor)))
+    (make-row-editor arg)))
 
 ;; tree view helpers
 
@@ -391,9 +393,13 @@
   to be bound to the keyargs map. Executes body with in a component
   bound to component-name.
   Component is eiter instanciated using the given classnames default ctor
-  or by looking up :self in args."
+  or by looking up :self in args.
+  Classname may also be a list, in which case the lists rest is used as 
+  arguments to the ctor."
   [[component-name classname] & body]
-  `(let [~component-name (or (:self ~'args) (new ~classname))         
+  `(let [~component-name (or (:self ~'args) (new ~@(if (seq? classname)
+						     classname
+						     (list classname))))
          ~'args (dissoc ~'args :self)]
      (set-properties ~component-name ~'args)
      ~@body
@@ -544,11 +550,12 @@
 
 (defproperties Container [c]
   :components 
-  (if (or (seq? it) (vector? it))
-    (doseq [comp it] (.add c comp))
-    (.add c it))
+  (do (.removeAll c)
+      (if (or (seq? it) (vector? it))
+	(doseq [comp it] (.add c comp))
+	(.add c it)))
   (seq c)
-  "a list of components of this container, settin adds a single component or a seq/vector of components at once")
+  "a list of components of this container, setting sets it to a single component or a seq/vector of components")
 
 ;; containers
 
@@ -558,10 +565,11 @@
   :maximized (.setMaximized w it) (.isMaximized w) "when true, maximize window over the whole display"
   :visible (.setVisible w it) (.isVisible w) "hide window when false"
   :title (.setTitle w (str it)) (.getTitle w) "the windows title"
-  :icon (when-it (get-icon it) (.setIcon w it)) (.getIcon w) "the windows icon, a keyword or an Image object.")
+  :icon (when-it (get-icon it) (.setIcon w it)) (.getIcon w) "the windows icon, a keyword or an Image object."
+  :auxilliary nil (.isAuxilliary w) "The window's auxilliary flag. Auxilliary windows can't become active and can only own other auxilliary windows. Not settable, only when constructing the window.")
 
 (defcomponent window [args [component]]
-  (with-component [w Window] 
+  (with-component [w (Window (:auxilliary args))]
     (when-it component (.setContent w it))))
 
 (defcomponent sheet [args [component]]
