@@ -64,7 +64,7 @@
 				 TableView$SelectMode TableView$Column
 				 TableView$CellRenderer TableView$RowEditor
                                  ;; enums, structs
-                                 Orientation SortDirection Insets
+                                 Orientation SortDirection Insets Point
 				 Dimensions VerticalAlignment HorizontalAlignment)
            
            (org.apache.pivot.wtk.content TableViewBooleanCellRenderer 
@@ -546,7 +546,13 @@
   :user 
   (set-user-data c it)
   (dictionary->hashmap (.getUserData c))
-  "Userdata of Component, a clojure hashmap.")
+  "Userdata of Component, a clojure hashmap."
+  
+  :location
+  (let [[x y] it] (.setLocation c (Point. x y)))
+  (let [loc (.getLocation c)] [(.x loc) (.y loc)])
+  "A [x,y] value containing the component's horizontal and vertical position relative to the origin of the parent container."
+  )
 
 (defproperties Container [c]
   :components 
