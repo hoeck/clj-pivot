@@ -409,7 +409,7 @@
 (defn remove-listener
   "remove listener from object"
   [object listener]
-  (.add (get-listener-list object listener) listener))
+  (.remove (get-listener-list object listener) listener))
 
 (defn remove-listeners
   "Remove all clojure listeners from  the given (pivot) object."
