@@ -315,7 +315,7 @@
    see `make-row-editor'."
   [arg]
   (if (keyword? arg)
-    (condp = key
+    (condp = arg
       :row (TableViewRowEditor.)
       :cell (TableViewCellEditor.))
     (make-row-editor arg)))
