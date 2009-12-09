@@ -20,7 +20,7 @@
            (org.apache.pivot.collections Dictionary)
 	   (java.net URL)))
 
-(def appstate (agent {}))
+(def appstate (atom {}))
 
 (defn show-only
   "show a single window using the current display"
@@ -30,12 +30,21 @@
 	(.open window disp))
     (throwf "no display available")))
 
-(defn start-pivot [agent]
-  (app/set-startup-fn (fn [display] (send agent assoc :display display)))
-  (DesktopApplicationContext/main hoeck.pivot.Application, (into-array String ())))
+(defn start-pivot
+  "return a promise that contains a display when pivot is ready."
+  []
+  (let [startup-p (promise)]
+    (app/set-startup-fn (fn [display] (deliver startup-p display)))
+    (DesktopApplicationContext/main hoeck.pivot.Application, (into-array String ()))
+    startup-p))
 
 (defn pivot-invoke [f]
   (DesktopApplicationContext/queueCallback f))
+
+(defn with-pivot
+  "Execute body in the pivot thread."
+  [& body] `(pivot-invoke (fn [] ~@body)))
+
 
 ;;;
 

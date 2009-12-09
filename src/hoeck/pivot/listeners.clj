@@ -46,7 +46,9 @@
 	    TreeViewNodeListener TreeViewNodeStateListener
 	    TreeViewSelectionListener ViewportListener
 	    WindowActionMappingListener WindowClassListener WindowListener
-	    WindowStateListener)
+	    WindowStateListener
+            ;; non listeners:
+            Action)
            (org.apache.pivot.collections FilteredListListener
                                          ListListener
                                          MapListener
@@ -390,6 +392,7 @@
       FormListener "getFormListeners"
       ;; CollectionListeners
       ListListener "getListListeners"
+      MapListener "getMapListeners"
       })
 
 (defn get-listener-list [object listener]
@@ -420,3 +423,12 @@
         (when (re-matches #".*clojure.*" (.getName (type l)))
           (.remove ll l))))))
 
+
+;; actions
+
+(defn action
+  "Given a function, return a org.apache.pivot.wtk.Action calling (f)
+  on Action.perform()."
+  [f]
+  (proxy [Action] []
+    (perform [] (f))))

@@ -92,7 +92,7 @@
             (map #(str "hoeck/pivot/icons/" (name %) ".png") (vals icon-mapping)))))
 
 (defn inspector-tree
-  "given a pivot component, return tree of (the-component & contained-components)
+  "given a pivot component, return a tree of (the-component & contained-components)
   (the model)"
   [c]
   (let [components (:components (get-properties c))]

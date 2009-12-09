@@ -64,7 +64,7 @@
 				 TableView$SelectMode TableView$Column
 				 TableView$CellRenderer TableView$RowEditor
                                  ;; enums, structs
-                                 Orientation SortDirection Insets Point
+                                 Orientation SortDirection Insets Point Bounds
 				 Dimensions VerticalAlignment HorizontalAlignment)
            
            (org.apache.pivot.wtk.content TableViewBooleanCellRenderer 
@@ -125,10 +125,12 @@
 
 ;; todo: add more style keywords
 ;; a map of style-keywords to [styleStringKey function]
-(def style-setters 
+(def style-setters
      {:padding ["padding" make-insets]
       :vert-align ["verticalAlignment" get-vert-align]
+      :vertical-alignment ["verticalAlignment" get-vert-align]
       :horiz-align ["horizontalAlignment" get-horiz-align]
+      :horizontal-alignment ["horizontalAlignment" get-horiz-align]
       :spacing ["spacing" identity]
       :pref-size ["preferredSize" (fn [[x y]] (Dimensions. x y))]
       :thickness ["thickness" identity]
@@ -144,9 +146,13 @@
   [component style-map]
   (let [sd (.getStyles component)]
     (doseq [[k v] style-map]
-      (let [[key f] (style-setters k)]
-        (when (nil? f) (throwf "no setter for style %s" k))
-        (.put sd key (f v))))
+      (if (keyword? k)
+        ;; use style setters
+        (let [[key f] (style-setters k)]
+          (when (nil? f) (throwf "no setter for style %s" k))
+          (.put sd key (f v)))
+        ;; use raw pivot classes
+        (.put sd k v)))
     component))
 
 (defn set-user-data
@@ -195,6 +201,16 @@
     :multi ListView$SelectMode/MULTI  
     :none ListView$SelectMode/NONE
     :single ListView$SelectMode/SINGLE))
+
+(defn get-bounds
+  "Given a org.apache.pivot.wtk.Bounds object, return its values as
+  a vector [x y width height].
+  Given a clojure vector, return a Bounds object."
+  [bounds-or-vector]
+  (let [bv bounds-or-vector]
+    (if (instance? Bounds bv)
+      (vector (.x bv) (.y bv) (.width bv) (.height bv))
+      (let [[x y w h] bv] (Bounds. x y w h)))))
 
 ;; interfaces
 
@@ -290,7 +306,7 @@
 
 ;; table-view roweditors
 
-(defn make-row-editor
+(defn make-table-editor
   "Returns a TableView$RowEditor implemented through the edit-f function.
   Upon an edit request, edit-f is called with 3 arguments:
     table-view, row-index, column-index
@@ -318,7 +334,7 @@
     (condp = arg
       :row (TableViewRowEditor.)
       :cell (TableViewCellEditor.))
-    (make-row-editor arg)))
+    (make-table-editor arg)))
 
 ;; tree view helpers
 
@@ -541,7 +557,7 @@
   (.getTooltipText c)
   "a string"
 
-  :styles (set-styles c it) (dictionary->hashmap (.getStyles c)) "A map of styles for the component."
+  :styles (set-styles c it) (dictionary->hashmap-str (.getStyles c)) "A map of styles for the component."
 
   :user 
   (set-user-data c it)
@@ -823,7 +839,7 @@
 
 (defproperties TableView [t]
   :disabled-filter (.setDisabledRowFilter t (make-filter it)) (.getDisabledRowFilter t) "a predicate-function implementing a Filter"
-  :row-editor (.setRowEditor t (make-table-view-editor it)) (.getRowEditor t) "a funciton implenting editor, see make-table-view-editor"
+  :editor (.setRowEditor t (make-table-view-editor it)) (.getRowEditor t) "a funciton implenting editor, see make-table-view-editor"
 
   :selected-index 
   (if (number? it) 
@@ -911,11 +927,13 @@
 
 (defproperties ListButton [l]
   :disabled-filter (.setDisabledItemFilter l (make-filter it)) (.getDisabledItemFilter l) "a predicate filtering items"
-  :data (.setListData l it) (.getListData l) "the listbuttons data, a List"
+  :list-data (.setListData l it) (.getListData l) "the listbuttons data, a List"
   :selected-item (.setSelectedItem l it) (.getSelectedItem l) "set an item to select/get the selected item"
   :selected-item-key (.setSelectedItemKey l (str it)) (.getSelectedItemKey l) "a key (string)"
 
-  :item-renderer (.setItemRenderer l (make-list-view-renderer it)) (.getItemRenderer l)
+  :item-renderer
+  (.setItemRenderer l (make-list-view-renderer it))
+  (.getItemRenderer l)
   ":default or color, or a function, see make-list-view-renderer")
 
 (defcomponent list-button [args]

@@ -52,6 +52,13 @@
 	    (assoc m (clj-key k) (.get d k)))
 	  {} (seq d)))
 
+(defn dictionary->hashmap-str
+  "Return a clojure hashmap from a pivot dictionary."
+  [d]
+  (reduce (fn [m k]
+	    (assoc m k (.get d k)))
+	  {} (seq d)))
+
 (defn dictionary-list->relation
   [l]
   (set (map dictionary->hashmap l)))
