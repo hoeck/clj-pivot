@@ -442,7 +442,7 @@
 (defn get-all-property-defs
   "Return a map of property definitions for a given object o."
   [o]
-  (let [types (conj (supers (type o)) (type o))]   
+  (let [types (conj (supers (type o)) (type o))]
     (apply merge (map property-definition-map types))))
 
 (defn set-properties
@@ -456,13 +456,18 @@
 	   (throwf "Unknown property %s for object %s" k o))))))
 
 (defn get-properties
-  "Return all known properties of an object"
-  [o]
+  "Return all properties of an object or only the ones given in property-keys.
+  If an Exception occurs in a getter-method call, ignore it and return nil for
+  that value."
+  [o & property-keys]
   (if (nil? o)
-    (println "warn: get-properties: object is null")
-    (let [p (get-all-property-defs o)]
+    (throwf "o may not be nil")
+    (let [p (get-all-property-defs o)
+          pk (if (empty? property-keys)
+               (constantly true)
+               (set property-keys) )]
       (into {} (map (fn [[k {:keys [getter]}]]
-                      (when getter [k (try (getter o) (catch Exception e nil))]))
+                      (when (and (pk k) getter) [k (try (getter o) (catch Exception e nil))]))
                     p)))))
 
 (defn doc-properties
