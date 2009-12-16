@@ -24,6 +24,7 @@
 	hoeck.pivot.datastructures
         hoeck.pivot.icons)
   (:require [hoeck.pivot.Application :as app]
+            [hoeck.pivot.content :as content]
 	    [clojure.xml :as xml])
   (:import (org.apache.pivot.wtk DesktopApplicationContext Application Display
                                  ;; containers
@@ -306,35 +307,15 @@
 
 ;; table-view roweditors
 
-(defn make-table-editor
-  "Returns a TableView$RowEditor implemented through the edit-f function.
-  Upon an edit request, edit-f is called with 3 arguments:
-    table-view, row-index, column-index
-  and should do whatever possible to edit the given cell at the given
-  indices, e.g.: open a popup with a component (TextInput ..) in it.
-  on other methods, edit-f is called with a single keyword argument:
-  :cancel on .cancel, :editing? on .isEditing and :save on .save."
-  [edit-f]
-  (proxy [TableView$RowEditor] []
-    (edit [table-view, row-index, column-index]
-          (edit-f table-view row-index column-index))
-    ;; Cancels an edit that is in progress by reverting any edits the user has made. void
-    (cancel [] (edit-f :cancel))
-    ;; Tells whether or not an edit is currently in progress. boolean
-    (isEditing [] (edit-f :editing?))
-    ;;  Saves an edit that is in progress by updating the appropriate data object. void
-    (save [] (edit-f :save))))
-
 (defn make-table-view-editor
   "return a TableView$RowEditor either a default one (arg is :row or :cell)
-   or a custom one where arg is function implementing the editor-interface,
-   see `make-row-editor'."
+   or a custom one (see hoeck.pivot.content)."
   [arg]
-  (if (keyword? arg)
-    (condp = arg
-      :row (TableViewRowEditor.)
-      :cell (TableViewCellEditor.))
-    (make-table-editor arg)))
+  (cond (keyword? arg) (condp = arg
+                         :row (TableViewRowEditor.)
+                         :cell (TableViewCellEditor.))
+        (fn? arg) (content/table-view-editor arg)
+        :else arg))
 
 ;; tree view helpers
 
@@ -455,6 +436,12 @@
 	   (s o v)
 	   (throwf "Unknown property %s for object %s" k o))))))
 
+(defn set-property
+  "Set a single property of a component and return the component."
+  [o key value]
+  (set-properties o {key value})
+  o)
+
 (defn get-properties
   "Return all properties of an object or only the ones given in property-keys.
   If an Exception occurs in a getter-method call, ignore it and return nil for
@@ -470,11 +457,20 @@
                       (when (and (pk k) getter) [k (try (getter o) (catch Exception e nil))]))
                     p)))))
 
+(defn get-property
+  "return the value of the single property given with key."
+  [o key]
+  (get (get-properties o key) key))
+
 (defn doc-properties
-  "return a docstring made up of the objects properties"
+  "return a docstring made up of the objects properties of the form: 
+  :prop-key   .. documentation."
   [o]
-  (let [p (get-all-property-defs o)]
-    (apply str (map (fn [[k {:keys [doc]}]] (str k " .. " doc \newline)) p))))
+  (cl-format nil "~:{~22<~a~; ..~> ~a~%~}"
+             (let [p (get-all-property-defs o)]
+               (map vector
+                    (keys p)
+                    (map #(-> % val :doc) p)))))
 
 (defmacro set-documentation
   "generate extended docstrings from property docs, generate no documentation at all when
@@ -871,8 +867,8 @@
   "one of :boolean :string :date :filesize :image :multi :number, 
   or a custom one (function) see make-table-view-cell-renderer"
   
-  :header-data (.setHeaderData t it) (.getHeaderData t) "the displayed column name"
-  :name (.setName t (str it)) (.getName t) "the name of the key where the data is (a string)"
+  :header-data (.setHeaderData t it) (.getHeaderData t) "the name of the key where the data is, e.g. a keyword. The cell renderer uses it to get the value to render."
+  :name (.setName t (str it)) (.getName t) "the displayed column name (a string)" 
   :sort-direction (.setSortDirection t (get-sort-direction it)) (.getSortDirection t) ":asc or :desc (for ascending or descending sort order)"
   :width (set-relative-size .setWidth t it) (get-relative-size .getWidth t) "the column width, [width] to set a relative width")
 

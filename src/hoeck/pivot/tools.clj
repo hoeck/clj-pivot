@@ -182,7 +182,7 @@
                                                                       :view inspector-detail)
                                             :primary-region :top-left
                                             :split-ratio 0.6)))]
-       (add-listener inspector-tv (listener :tree-view-selection *
+       (add-listener inspector-tv (listener :tree-view-selection
                                               #(inspector-tree-view-listener inspector-detail components-tree %)))
        ;;(add-listener inspector-tv (listener :component-key * #(inspector-tree-key-listener inspector-tv %)))
        (if container-frame
