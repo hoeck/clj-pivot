@@ -1,13 +1,17 @@
 
 (ns hoeck.pivot.content
-  (:use clojure.contrib.except
-        hoeck.pivot.components
-        hoeck.pivot.listeners
-        hoeck.pivot.datastructures)
-  (:require [hoeck.pivot.relations :as pivot-rel])
+  (:use clojure.contrib.except)
   (:import (org.apache.pivot.wtk Keyboard Keyboard$KeyCode
                                  TableView$CellRenderer TableView$RowEditor)
            (org.apache.pivot.util Vote)))
+
+;; impose a loading order because there is a circular reference between content and components
+(declare label-cell-renderer)
+(declare table-view-editor)
+(use 'hoeck.pivot.components)
+(use 'hoeck.pivot.listeners)
+(use 'hoeck.pivot.datastructures)
+(require '[hoeck.pivot.relations :as pivot-rel])
 
 ;; table-view cell renderers and editors
 ;; require tableData to be a List of tuples (clojure hashmaps)
@@ -33,7 +37,7 @@
       (.put "font" (.get tv-styles "font")))))
 
 (defn cell-value [col tuple default]
-  (get tuple (get-property col :header-data) ""))
+  (get tuple (keyword (get-property col :name)) ""))
 
 (defn label-cell-renderer
   "like a plain cell renderer but renders data from a clojure hashmap instead
@@ -47,15 +51,15 @@
        (set-property component :text (str (cell-value column value ""))))))
 
 (defn label-map-cell-renderer
-  "like a label-cell-renderer, but renders values found in display map after
-  looking up the column-value."
-  [display-map]
+  "like a label-cell-renderer, but renders values found in display-fn after
+  calling (display-fn the-cell-value)."
+  [display-fn]
   (fn ([] (label :styles {:horizontal-alignment :left
                           :vertical-alignment :center
                           :padding [2 2 2 2]}))
     ([{:keys [component, value, column] :as args}]
        (set-cell-renderer-styles args)
-       (set-property component :text (str (get display-map (cell-value column value nil)))))))
+       (set-property component :text (str (display-fn (cell-value column value nil)))))))
 
 (defn list-button-renderer
   []
@@ -136,7 +140,7 @@
 (defn find-table-view-cell
   "return [name value] of a given table-view-cell at [row,column]"
   [tv row-idx col-idx]
-  (let [colname (-> tv .getColumns (.get col-idx) (get-property :header-data))]
+  (let [colname (-> tv .getColumns (.get col-idx) (get-property :name) keyword)]
     [colname (get (.get (.getTableData tv) row-idx) colname)]))
   
 (deftype TableViewEditor [state editor] :as this
@@ -206,10 +210,15 @@
 
 (defeditor list-button-editor
   "Uses a list-button to choose one from a map of choices. A map value is
-  displayed if its key is the current value of the cell."
+  displayed if its key is the current value of the cell.
+  If choice-map a function of one argument, the current tuple and it
+   should return a map to lookup the displayed-value."
   [choice-map]
   (edit [{n :colname v :colvalue [x y w h] :bounds tv :tv row-idx :row-idx}]
-        (let [lb (list-button :data (get choice-map v)
+        (let [choice-map (if (fn? choice-map)
+                           (choice-map (.get (.getTableData tv) row-idx))
+                           choice-map)
+              lb (list-button :data (get choice-map v)
                               :preferred-width w
                               :list-data (make-list (vals choice-map)))]
           (add-listener lb (list-button-selection-listener _

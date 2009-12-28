@@ -9,7 +9,7 @@
 (ns hoeck.pivot
   (:use clojure.contrib.pprint
         clojure.contrib.except
-
+        hoeck.pivot.content
 	hoeck.pivot.datastructures
         hoeck.pivot.components
         hoeck.pivot.listeners
@@ -19,6 +19,7 @@
            (org.apache.pivot.wtkx WTKXSerializer)
            (org.apache.pivot.collections Dictionary)
 	   (java.net URL)))
+
 
 (def appstate (atom {}))
 
@@ -41,10 +42,9 @@
 (defn pivot-invoke [f]
   (DesktopApplicationContext/queueCallback f))
 
-(defn with-pivot
+(defmacro with-pivot
   "Execute body in the pivot thread."
   [& body] `(pivot-invoke (fn [] ~@body)))
-
 
 ;;;
 

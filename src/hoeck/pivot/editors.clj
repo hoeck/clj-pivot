@@ -141,7 +141,7 @@
     (fn [method component colname & [arg-map]]
       (condp = method
         :create (let [{d :data [x y w h] :bounds rowdata :rowdata} arg-map
-                      _ (reset! m (f (dictionary->hashmap rowdata)))
+                      _ (reset! m (f rowdata))
                       l (list-button :data (if-let [e (first (filter #(= (val %) d) @m))]
                                              (key e)
                                              "")

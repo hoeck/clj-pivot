@@ -35,9 +35,18 @@
   "Make a pivot Dictionary (using a pivot HashMap) from a clojure hashmap. Convert keys and symbols to strings
   using `str'."
   [m]
-  (let [dict (HashMap. (count m))]
-    (doseq [[k v] m] (.put dict (str k) v))
-    dict))
+  (if (empty? m)
+    (HashMap.)
+    (let [dict (HashMap. (count m))]
+      (doseq [[k v] m] (.put dict (str k) v))
+      dict)))
+
+(defn remove-nils
+  "given a clojure hashmap, remove all entries where the value is nil.
+  Useful when loading tuples in forms. Text-inputs throw an error on nil
+  values for :text."
+  [m]
+  (into {} (filter val m)))
 
 (defn make-dictionary-list
   "Create a list of dictionarys from a clojure seq of hashmaps (e.g. a relation). Convert symbol and keyword keys
@@ -46,7 +55,8 @@
   (make-list (map make-dictionary R)))
 
 (defn dictionary->hashmap
-  "Return a clojure hashmap from a pivot dictionary. Translate keys from Strings to keywords/symbols."
+  "Return a clojure hashmap from a pivot dictionary.
+  Translate keys from Strings to keywords/symbols (based on a leading colon)."
   [d]
   (reduce (fn [m k]
 	    (assoc m (clj-key k) (.get d k)))

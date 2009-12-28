@@ -10,11 +10,12 @@
   (:import (org.apache.pivot.wtk.media Picture Image)
            (java.net URL)))
 
-(defn- symbol->string-ressource-path [s]
-  (str (.replaceAll (str s) "\\." "\\/") ".png"))
+(defn- symbol->string-ressource-path
+  [s]
+  (str (.replaceAll (str (when-let [n (namespace s)] (str n "/")) (name s)) "\\." "\\/") ".png"))
 
 (defn- get-icon-from-ressource-path [arg]
-  (let [rp (if (symbol? arg)
+  (let [rp (if (or (keyword? arg) (symbol? arg))
              (symbol->string-ressource-path arg)
              arg)]
     (when-let [url (ClassLoader/getSystemResource rp)]
@@ -25,8 +26,8 @@
     (force nf)))
 
 (defn get-icon [arg]
-  (cond (or (symbol? arg) (string? arg))
-          (or (get-icon-from-ressource-path arg)
+  (cond (or (keyword? arg) (symbol? arg) (string? arg))
+        (or (get-icon-from-ressource-path arg)
               (not-found-icon))
         (isa? arg Image) arg
 	:else (not-found-icon)))
