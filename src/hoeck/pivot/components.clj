@@ -24,7 +24,7 @@
 	hoeck.pivot.datastructures
         hoeck.pivot.icons)
   (:require [hoeck.pivot.Application :as app]
-            [hoeck.pivot.content :as content]
+            ;;[hoeck.pivot.content :as content]
 	    [clojure.xml :as xml])
   (:import (org.apache.pivot.wtk DesktopApplicationContext Application Display
                                  ;; containers
@@ -59,14 +59,16 @@
                                  ListButton ListView
                                  ListView$SelectMode ListView$ItemRenderer ListView$ItemEditor
                                  ;; menu
-                                 Menu MenuBar MenuButton Menu$Item MenuPopup
+                                 Menu MenuBar MenuBar$Item MenuButton Menu$Item Menu$Section MenuPopup
                                  ;; tables
                                  TableView TableViewHeader
 				 TableView$SelectMode TableView$Column
 				 TableView$CellRenderer TableView$RowEditor
                                  ;; enums, structs
                                  Orientation SortDirection Insets Point Bounds
-				 Dimensions VerticalAlignment HorizontalAlignment)
+				 Dimensions VerticalAlignment HorizontalAlignment
+                                 ;; button-action
+                                 Action)
            
            (org.apache.pivot.wtk.content TableViewBooleanCellRenderer 
                                          TableViewCellRenderer
@@ -83,7 +85,8 @@
                                          TreeViewNodeRenderer
                                          TreeViewNodeEditor
 					 TreeBranch
-					 TreeNode)
+					 TreeNode
+                                         ButtonData)
            (org.apache.pivot.wtk.text.validation Validator)
            (org.apache.pivot.util Filter CalendarDate)
 	   (org.apache.pivot.collections Map Dictionary)
@@ -92,7 +95,7 @@
 
 ;; enum/classes mapping
 
-(def components;; a list of component classes
+(def components ;; a list of component classes
      [Border Frame ActivityIndicator ScrollPane Display TabPane
       TextInput StackPane TableView Menu MenuBar Accordion Panorama
       Viewport MenuButton TextArea ListButton Window Calendar
@@ -124,6 +127,20 @@
     :plain Font/PLAIN
     :bold Font/BOLD))
 
+(defn get-color [color-keyword-or-vector]
+  (let [c color-keyword-or-vector]
+    (cond (keyword? c)
+          (throwf "todo: implement color lookup")
+          (vector? c)
+          (let [[r g b a] c]
+            (cond (and r g b a) (Color. r g b a)
+                  (and r g b) (Color. r g b)
+                  (and r g) (Color. r g)
+                  (and r) (Color. r)
+                  :else (throw-arg "need at least one non nil argument to Color ctor")))
+          (instance? Color c) c
+          :else (throw-arg "to get-color: %s" c))))
+
 ;; todo: add more style keywords
 ;; a map of style-keywords to [styleStringKey function]
 (def style-setters
@@ -140,7 +157,22 @@
       :focusable ["focusable" identity]
       :button-padding ["buttonPadding" make-insets]
       :font ["font" (fn [[name style size]] (Font. name (get-font-style style) size))]
-      :fill ["fill" boolean]})
+      :font-size ["fontSize" identity]
+      :font-bold ["fontBold" boolean]
+      :font-italic ["fontItalic" boolean]
+      :fill ["fill" boolean]
+      :delimiter ["delimiter" str]
+      :show-first-section-heading ["showFirstSectionHeading" boolean]
+      :opaque ["opaque" boolean]
+      ;; tablePane
+      :show-horizontal-grid-lines ["showHorizontalGridLines" boolean]
+      :show-vertical-grid-lines ["showVerticalGridLines" boolean]
+      :horizontal-spacing ["horizontalSpacing" int]
+      :vertical-spacing ["verticalSpacing" int]
+      ;; colors
+      :invalid-background-color ["invalidBackgroundColor" get-color]
+      :invalid-color ["invalidColor" get-color]
+      :background-color ["backgroundColor" get-color]})
 
 (defn set-styles
   "set the style of a component using style-setters to translate requests to pivot."
@@ -157,7 +189,7 @@
     component))
 
 (defn set-user-data
-  "put the contants of the (clojure-hashmap) user-data-map 
+  "put the contents of the (clojure-hashmap) user-data-map
   into the userdata dictionary of component."
   [component user-data-map]
   (let [u (.getUserData component)]
@@ -196,6 +228,30 @@
     :selected Button$State/SELECTED
     :mixed Button$State/MIXED
     :unseleced Button$State/UNSELECTED))
+
+(defn get-button-data
+  "Get :icon and :text from a ButtonData instance, or return bd."
+  [bd] (if (isa? (type bd) ButtonData)
+         {:icon (.getIcon bd) :text (.getText bd)}
+         bd))
+
+(defn make-button-data
+  "Return a ButtonData object if input is a vector of
+  [icon & [text]], otherwise just return the argument."
+  ([arg] 
+     (if (vector? arg)
+       (let [[icon & [text]] arg]
+         (if text 
+           (ButtonData. (get-icon icon) (str text))
+           (ButtonData. (get-icon icon))))
+       arg)))
+
+(defn make-button-action 
+  "Given a function, return a org.apache.pivot.wtk.Action calling (f)
+  on Action.perform()."
+  [f]
+  (proxy [Action] []
+    (perform [] (f))))
 
 (defn get-listview-selectmode [key]
   (condp = key
@@ -309,12 +365,12 @@
 
 (defn make-table-view-editor
   "return a TableView$RowEditor either a default one (arg is :row or :cell)
-   or a custom one (see hoeck.pivot.content)."
+   or a custom one, (see hoeck.pivot.content)."
   [arg]
   (cond (keyword? arg) (condp = arg
                          :row (TableViewRowEditor.)
                          :cell (TableViewCellEditor.))
-        (fn? arg) (content/table-view-editor arg)
+        (fn? arg) (hoeck.pivot.content/table-view-editor arg)
         :else arg))
 
 ;; tree view helpers
@@ -534,14 +590,24 @@
   :enabled (.setEnabled c it) (.isEnabled c) "Enabled status."
   :height (.setHeight c it) (.getHeight c) "Height"
   :width (.setWidth c it) (.getWidth c) "Width"
-  :visible (.setVisible c it) (.isVisible c) "Visible flag"
+  :visible (.setVisible c (boolean it)) (.isVisible c) "Visible flag"
   
+  :pr-w
+  (set-component-width c it)  
+  [(.getMinimumPreferredWidth c) (.getPreferredWidth c) (.getMaximumPreferredWidth c)]
+  "shorthand for :preferred-width"
+
   :preferred-width
   (set-component-width c it)  
   [(.getMinimumPreferredWidth c) (.getPreferredWidth c) (.getMaximumPreferredWidth c)]
   "Set the preferred width of the Component. Can be a single number (= pref) or a vector of [min pref max],
   where min, pref, max are numbers or `*' where the latter indicates leave-value-as-is."
   
+  :pr-h
+  (set-component-height c it)
+  [(.getMinimumPreferredHeight c) (.getPreferredHeight c) (.getMaximumPreferredHeight c)]
+  "shorthand for :preferred-height"
+
   :preferred-height
   (set-component-height c it)  
   [(.getMinimumPreferredHeight c) (.getPreferredHeight c) (.getMaximumPreferredHeight c)]
@@ -560,16 +626,20 @@
 
   :styles (set-styles c it) (dictionary->hashmap-str (.getStyles c)) "A map of styles for the component."
 
+  :location
+  (let [[x y] it] (.setLocation c (Point. x y)))
+  (let [loc (.getLocation c)] [(.x loc) (.y loc)])
+  "A [x,y] value containing the component's horizontal and vertical position relative to the origin of the parent container."
+
   :user 
   (set-user-data c it)
   (dictionary->hashmap (.getUserData c))
   "Userdata of Component, a clojure hashmap."
   
-  :location
-  (let [[x y] it] (.setLocation c (Point. x y)))
-  (let [loc (.getLocation c)] [(.x loc) (.y loc)])
-  "A [x,y] value containing the component's horizontal and vertical position relative to the origin of the parent container."
-  )
+  :user-name
+  (set-user-data c {:name it})
+  (.get (.getUserData c) ":name")
+  "The userdata :name content, shorthand for (set-property c :user {:name 'name})")
 
 (defproperties Container [c]
   :components 
@@ -600,7 +670,7 @@
     (.setContent s component)))
 
 (defproperties Frame [fr]
-  :menubar (.setMenuBar fr it) (.getMenuBar fr) "the frames MenuBar object")
+  :menu-bar (.setMenuBar fr it) (.getMenuBar fr) "the frames menu-bar.")
 
 (defcomponent frame [args [component]]
   (with-component [fr Frame]
@@ -632,6 +702,10 @@
 
 (set-documentation border (Border.) :keys component)
 
+(defproperties Panel [p])
+(defcomponent panel [args components]
+  (with-component [p Panel]
+    (doseq [c components] (.add p c))))
 
 (defproperties Accordion [a]
   :selected-index (.setSelectedIndex a it) (.getSelectedIndex a) "The currently selected accordion-pane.")
@@ -667,6 +741,59 @@
 (set-documentation cardpane (CardPane.) :keys & components)
 
 
+(defproperties StackPane [s])
+(defcomponent stackpane [args components]
+  (with-component [s StackPane]
+    (doseq [c components] (.add s c))))
+(set-documentation stackpane (StackPane.) :keys & components)
+
+(defproperties Expander [e]
+  :title (.setTitle e (str it)) (.getTitle e) "The expanders title."
+  :collapsible (.setCollapsible e (boolean it)) (.isCollapsible e) "Collapsile flag."
+  :expanded (.setExpanded e (boolean it)) (.isExpanded e) "Expand status."
+  :content (.setContent e it) (.getContent e) "The component inside the expander.")
+
+(defcomponent expander [args component]
+  (with-component [e Expander]
+    (when-not (empty? component)
+      (set-property e :content (first component)))))
+
+(set-documentation expander (Expander.) :keys content)
+
+
+(defproperties Rollup [r]
+  :content (.setContent r it) (.getContent r) "The content component."
+  :heading (.setHeading r it ) (.getHeading r) "The component displaying the heading." 
+  :collapsible (.setCollapsible r (boolean it)) (.isCollapsible r) "Collapsible flag."
+  :expanded (.setExpanded r (boolean it)) (.isExpanded r) "Expanded flag.")
+
+(defcomponent rollup [args [heading content]]
+  (with-component [r Rollup]
+    (set-property r :heading heading)
+    (set-property r :content content)))
+
+(set-documentation rollup (Rollup.) :keys heading content)
+
+;; imageview
+
+(defproperties ImageView [i]
+  :image (.setImage i (get-icon it)) (.getImage i) "The image to display.")
+
+(defcomponent imageview [args]
+  (with-component [i ImageView]))
+
+(set-documentation imageview (ImageView.) :keys)
+
+;; separator
+
+(defproperties Separator [s]
+  :heading (.setHeading s (str it)) (.getHeading s) "Heading for the separator")
+
+(defcomponent separator [args]
+  (with-component [s Separator]))
+
+(set-documentation separator (Separator.) :keys)
+
 ;; forms
 
 (defcomponent form [args form-sections]
@@ -674,13 +801,16 @@
     (doseq [add-section-f form-sections]
       (add-section-f fm))))
 
-;; todo: handle :self
-(defcomponent form-section [args form-component-functions]
+(defcomponent form-section [args form-component-functions-or-components]
+  ;; when plain component is given, then setting the label is not possible
+  ;; when a (form-component ...) is given, label setting works
   (fn [form]
     (let [sec (or (:self args) (Form$Section.))]
       (.add (.getSections form) sec)
-      (doseq [add-form-component-f form-component-functions]
-        (add-form-component-f sec))
+      (doseq [add-form-component-f form-component-functions-or-components]
+        (if (fn? add-form-component-f)
+          (add-form-component-f sec)
+          (.add sec add-form-component-f)))
       (when-it (:heading args) (.setHeading sec (str it))))))
 
 ;; todo: handle :self
@@ -805,8 +935,10 @@
 (defproperties Label [l]
   :text (.setText l it) (.getText l) "the text")
 
-(defcomponent label [args style]
-  (with-component [la Label]))
+(defcomponent label [args text]
+  (with-component [la Label]
+    (when-not (empty? text)
+      (set-property la :text (apply str text)))))
 
 (defproperties TextInput [t]
   :max-length (.setMaximumLength t it) (.getMaximumLength t) "max length in characters"
@@ -814,7 +946,7 @@
   :prompt (.setPrompt t (str it)) (.getPrompt t) "the text appearing in an empty textinput"
   :selection (let [[s e] it] (.setSelection t s e)) (.getSelection t) "selected text: [start end]"
   :text (.setText t (str it)) (.getText t) "the textinputs content"
-  :text-key (.setTextKey t (str it)) (.getTextKey t) "string key for data-binding"
+  :text-key (.setTextKey t (str it)) (.getTextKey t) "string key for data-binding, calls str on its arg when setting."
   :text-node (.setTextNode t it) (.getTextNode t) "a TextNode"
   :text-size (.setTextSize t it) (.getTextSize t) "length of the inputs text"
   :validator (.setValidator t (make-validator it)) (.getValidator t) "a function implementing the Validator interface")
@@ -831,7 +963,7 @@
 (defcomponent text-area [args]
   (with-component [ta TextArea]))
 
-(set-documentation label (Label.) :keys)
+(set-documentation label (Label.) :keys & label-text)
 (set-documentation text-input (TextInput.) :keys)
 (set-documentation text-area (TextArea.) :keys)
 
@@ -867,14 +999,19 @@
   "one of :boolean :string :date :filesize :image :multi :number, 
   or a custom one (function) see make-table-view-cell-renderer"
   
-  :header-data (.setHeaderData t it) (.getHeaderData t) "the name of the key where the data is, e.g. a keyword. The cell renderer uses it to get the value to render."
-  :name (.setName t (str it)) (.getName t) "the displayed column name (a string)" 
+  :header-data (.setHeaderData t it) (.getHeaderData t) "the displayed column name (a string)"
+  :name (.setName t (if (or (symbol? it) (keyword? it)) (name it) (str it))) (.getName t)
+  "the name of the key where the data is, e.g. a keyword. The cell renderer
+  uses it to get the value to render. Uses name for symbols/keywords to get the
+  string."
+
   :sort-direction (.setSortDirection t (get-sort-direction it)) (.getSortDirection t) ":asc or :desc (for ascending or descending sort order)"
   :width (set-relative-size .setWidth t it) (get-relative-size .getWidth t) "the column width, [width] to set a relative width")
 
 (defcomponent table-view-column [args] ;; not a component, but an object with properties
   (let [t (or (:self args) (TableView$Column.))]
-    (set-properties t (dissoc args :self))
+    (set-properties t (merge {:cell-renderer (hoeck.pivot.content/label-cell-renderer)} ;; default renderer
+                             (dissoc args :self)))
     t))
 
 (set-documentation table-view (TableView.) :keys table-view-columns)
@@ -903,16 +1040,24 @@
 ;; buttons
 
 (defproperties Button [b]
-  ;;:action (.setAction b it) (.getAction b) "an Action"
+  :action (.setAction b (make-button-action it)) (.getAction b)
+  "an Action (a function without args, see make-button-action)"
   :group (.setGroup b (if (isa? (type it) Button$Group) it (str it))) (.getGroup b)
   "the button group, either sth stringable or a Button$Group"
   
-  :data (.setButtonData b it) (.getButtonData b) "the buttons text"
+  :data
+  (.setButtonData b (make-button-data it))
+  (get-button-data (.getButtonData b))
+  "the buttons text (string) or [icon] or [icon, text]."
   :selected (.setSelected b it) (.isSelected b) "a flag"
-  :selected-key (.setSelectedKey b it) (.getSelectedKey b) "key for data binding?"
-  :state (.setState b (get-button-state it)) (.getState b) "button state, one of: :selected :mixed :unselected"
+  :selected-key (.setSelectedKey b it) (.getSelectedKey b) "key for data binding"
+  :state (.setState b (get-button-state it)) (.getState b)
+  "button state, one of: :selected :mixed :unselected"
+  
   :toggle-state (.setToggleButton b it) (.isToggleButton b) "toggle-state flag"
-  :tri-state (.setTriState b it) (.isTriState b) "tri-state flag")
+  :tri-state (.setTriState b it) (.isTriState b) "tri-state flag"
+  :renderer (.setDataRenderer b it) (.getDataRenderer b)
+  "the renderer for :data")
 
 (defcomponent push-button [args]
   (with-component [pb PushButton]))
@@ -930,8 +1075,7 @@
   :disabled-filter (.setDisabledItemFilter l (make-filter it)) (.getDisabledItemFilter l) "a predicate filtering items"
   :list-data (.setListData l it) (.getListData l) "the listbuttons data, a List"
   :selected-item (.setSelectedItem l it) (.getSelectedItem l) "set an item to select/get the selected item"
-  :selected-item-key (.setSelectedItemKey l (str it)) (.getSelectedItemKey l) "a key (string)"
-
+  :selected-item-key (.setSelectedItemKey l (str it)) (.getSelectedItemKey l) "a key (string) for databinding"
   :item-renderer
   (.setItemRenderer l (make-list-view-renderer it))
   (.getItemRenderer l)
@@ -962,6 +1106,27 @@
 
 (set-documentation calendar-button (CalendarButton.) :keys)
 
+
+;; spinner
+
+(defproperties Spinner [s]
+  :selected-index (.setSelectedIndex s it) (.getSelectedIndex s)
+  "Currently selected index."
+  :selected-item (.setSelectedItem s it) (.getSelectedItem s)
+  "Currently selected item."
+  :item-renderer (.setItemRenderer s it) (.getItemRenderer s)
+  "The item renderer used."
+  :selected-item-key (.setSelectedItemKey s (str it)) (.getSelectedItemKey s)
+  "The key for data binding."
+  :data (.setSpinnerData s it) (.getSpinnerData s)
+  "Spinner data, a list."
+  :circular (.setCircular s (boolean it)) (.isCircular s)
+  "Circular spinning flag.")
+
+(defcomponent spinner [args]
+  (with-component [s Spinner]))
+
+(set-documentation spinner (Spinner.) :keys)
 
 ;; listview
 
@@ -1047,17 +1212,31 @@
 
 (defproperties TablePane$Column [c]
   :width (set-relative-size .setWidth c it) (get-relative-size .getWidth c) "width, [10] means a relative width."
-  :highlited (.setHighlighted c (boolean it)) (.isHighlighted c) "highlighted flag")
+  :highlighted (.setHighlighted c (boolean it)) (.isHighlighted c) "highlighted flag"
+  :visible (.setVisible c (boolean it)) (.isVisible c))
 
 (defcomponent table-pane-column [args]
   (with-component [c TablePane$Column]))
 
+(defn- table-pane-add-rows
+  "Set rows of a table-pane.
+  When setting a sequence of rows or [row fn], in the latter case, fn is
+  called to perform span-setting, in both cases, rows are set to the table-pane"
+  [t rows]
+  (let [rowseq (.getRows t)]
+    (doseq [r rows]
+      (if (vector? r)
+        (let [[r f] r]
+          (.add rowseq r)
+          (f t))
+        (.add rowseq r)))))
+
 (defproperties TablePane [t]
-  :rows  
-  (let [rowseq (.getRows t)]    
-    (doseq [r it] (.add rowseq r)))
+  :rows
+  (do (.remove (.getRows t) 0 (.getLength (.getRows t))) ;; remove all
+      (table-pane-add-rows t it))
   (seq (.getRows t))
-  "the tables rows, a sequence, create one with table-pane-rows; setting adds rows"
+  "the tables rows, a sequence, create one with `table-pane-row'."
 
   :cols
   (let [colseq (.getColumns t)]
@@ -1067,12 +1246,14 @@
               (table-pane-column :width c)
               c))))
   (seq (.getColumns t))
-  "the tables rows, a sequence, create one with table-pane-rows or supply a vector of
+  "the table rows, a sequence, create one with table-pane-rows or supply a vector of
   widths")
 
 (defcomponent table-pane [args rows]
+  ;; rows given here are _added_
+  ;; rows given with set-properties are set
   (with-component [t TablePane]
-    (set-properties t {:rows rows})))
+    (table-pane-add-rows t rows)))
 
 (defproperties TablePane$Row [r]
   :height (set-relative-size .setHeight r it) (get-relative-size .getHeight r) "height, [10] means a relative height."
@@ -1080,9 +1261,156 @@
   :visible (.setVisible r (boolean it)) (.isVisible r) "row visibility flag")
 
 (defcomponent table-pane-row [args components]
-  (with-component [r TablePane$Row]
-    (doseq [c components] (.add r c))))
+  ;; components: a seq of components or vectors
+  ;; where vectors: [component [col-span row-span]], *,nil means, leave as-is.
+  (let [r (with-component [r TablePane$Row]
+            (doseq [c components]
+              (.add r (if (vector? c) (first c) c))))]
+    [r (fn [table-pane]
+         ;; set column and/or row span
+         (doseq [c components]
+           (when (vector? c)
+             (let [[c [col-idx row-idx]] c]
+               (when (number? col-idx) (TablePane/setColumnSpan c col-idx))
+               (when (number? row-idx) (TablePane/setRowSpan c row-idx))))))]))
 
 (set-documentation table-pane (TablePane.) :keys & rows)
 (set-documentation table-pane-column (TablePane$Column.) :keys)
 (set-documentation table-pane-row (TablePane$Row.) :keys & components)
+
+;;  menus
+
+(defproperties Menu [m]
+  :active-item nil (.getActiveItem m) "The active item, read-only."
+  :item nil (.getItem m) "The parent item of this menu, read-only."
+  :sections nil (.getSections m) "The sequence of `menu-section's, read-only.")
+
+(defcomponent menu [args menu-sections]
+  (with-component [m Menu]
+    (doseq [c menu-sections]
+      (.add (.getSections m) c))))
+
+(defproperties Menu$Section [m]
+  :name (.setName m (str it)) (.getName m) "The sections name."
+  :items
+  (do (.remove m 0 (.getLength m)) ;; remove all
+      (doseq [items it]
+        (.add m it)))
+  (seq (.iterator m))
+  "The sections `menu-item's."
+  
+  :menu nil (.getMenu m) "The menu associated with the section.")
+
+(defcomponent menu-section [args menu-items]
+  (with-component [m Menu$Section]
+    (doseq [i menu-items]
+      (.add m i))))
+
+(defproperties Menu$Item [m] ;; a menu is a subclass of Button
+  :menu (.setMenu m it) (.getMenu m) "The items Menu"
+  :name (.setName m (str it)) (.getName m) "a name"
+  :active (.setActive m (boolean it)) (.isActive m) "active state, a boolean."
+  :enabled (.setEnabled m (boolean it)) (.isEnabled m) "Enabled flag, boolean.")
+
+(defcomponent menu-item [args]
+  (with-component [m Menu$Item]))
+
+(set-documentation menu (Menu.) :keys & menu-sections)
+(set-documentation menu-section (Menu$Section.) :keys & menu-items)
+(set-documentation menu-item (Menu$Item.) :keys)
+
+;; menu bar
+
+(defproperties MenuBar [m]
+  :items
+  (let [is (.getItems m)]
+    (.remove is 0 (.getLength is))
+    (doseq [i it] (.add is it)))
+  (seq (.iterator (.getItems m)))
+  "A pivot sequence of `menu-bar-item's.")
+
+(defcomponent menu-bar [args menu-bar-items]
+  ;; (menu-bar item1 item2 item3) -> adds item 1 2 3
+  ;; (menu-bar :items [item1 item2 item3]) -> removes all items and sets items to 1-3
+  (with-component [m MenuBar]
+    (doseq [i menu-bar-items]
+      (.add (.getItems m) i))))
+
+(defproperties MenuBar$Item [m] ;; a subclass of Button
+  :menu (.setMenu m it) (.getMenu m) "The items menu."
+  :menu-bar nil (.getMenuBar m) "The items menu-bar, read-only."
+  :active (.setActive m (boolean it)) (.isActive m) "Active flag, boolean."
+  :enabled (.setEnabled m (boolean it)) (.isEnabled m) "Enabled flag, boolean.")
+
+(defcomponent menu-bar-item [args]
+  (with-component [m MenuBar$Item]))
+
+(set-documentation menu-bar (MenuBar.) :keys & menu-bar-items)
+(set-documentation menu-bar-item (MenuBar$Item.) :keys)
+
+;; menu popup
+
+(defproperties MenuPopup [m]
+  :menu (.setMenu m it) (.getMenu m) "The Popups menu.")
+
+(defcomponent menu-popup [args]
+  (with-component [m MenuPopup]))
+
+(set-documentation menu-popup (MenuPopup.) :keys)
+
+
+;; component tree, using :user to identify components
+
+(defn branch-property
+  "Return the property which can contain more components."
+  [c]
+  (condp #(isa? %2 %1) (type c)
+    Container :components
+    nil))
+
+(defn get-children
+  "Given a component, return its children, if any."
+  [c]
+  (get-property c (branch-property c)))
+
+(defn component-map
+  "Return a map of name:(component*), where name is
+  (-> % (get-property :user) :name)."
+  [root-component]
+  (->> (tree-seq branch-property get-children root-component)
+       (map #(vector (get-property % :user-name) %))
+       (reduce (fn [m [name comp]]
+                 (update-in m [name] conj comp))
+               {})))
+
+(defn find-components
+  "Beginning at root, return all components matching name-or-f.
+  name-f-or-regex may be a keyword, symbol, regex or function. Symbols are
+  compared with the user-name. Regexes are matched against the user-name and
+  functions are called for each component and should act like predicates."
+  [root-component name-f-or-regex]  
+  (filter (cond (fn? name-f-or-regex)
+                  name-f-or-regex
+                (instance? java.util.regex.Pattern name-f-or-regex)
+                  #(re-matches name-f-or-regex (-> % (get-property :user-name) name))
+                :else #(= name-f-or-regex (get-property % :user-name)))
+          (tree-seq branch-property get-children root-component)))
+
+(defn find-component
+  "Same as find-components but return the first component only."
+  [root-component name-f-or-regex]
+  (first (find-components root-component name-f-or-regex)))
+
+
+;; slow!
+(defn component-tuple [c]
+  (let [p (get-properties c)]
+    {:component c
+     :type (.getSimpleName (class c))
+     :user-name (:user-name p)
+     :properties p}))
+
+(defn component-relation
+  "return a relation of components"
+  [root]
+  (set (map component-tuple (tree-seq branch-property get-children root))))
