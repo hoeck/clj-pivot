@@ -138,6 +138,7 @@
                   (and r g) (Color. r g)
                   (and r) (Color. r)
                   :else (throw-arg "need at least one non nil argument to Color ctor")))
+	  (integer? c) (Color. c)
           (instance? Color c) c
           :else (throw-arg "to get-color: %s" c))))
 
@@ -172,7 +173,9 @@
       ;; colors
       :invalid-background-color ["invalidBackgroundColor" get-color]
       :invalid-color ["invalidColor" get-color]
-      :background-color ["backgroundColor" get-color]})
+      :color ["color" get-color]
+      :background-color ["backgroundColor" get-color]
+      :border-color ["borderColor" get-color]})
 
 (defn set-styles
   "set the style of a component using style-setters to translate requests to pivot."
