@@ -9,6 +9,7 @@
 (ns hoeck.pivot.listeners
   (:use clojure.contrib.pprint
         clojure.contrib.except)
+  (:require hoeck.pivot.components)
   (:import (org.apache.pivot.wtk ;; Listeners
 	    AccordionAttributeListener AccordionListener
 	    AccordionSelectionListener ActionClassListener ActionListener
@@ -164,7 +165,7 @@
               :else (throwf "unknown listener method: %s (%s, %s)" method-key name-ch name))))))
 
 (defn lispify-camelcase [j]
-  (let [m (re-matcher #"[A-Z][a-z]*" (str (.toUpperCase (.substring j 0 1)) (.substring j 1)))]        
+  (let [m (re-matcher #"[A-Z][a-z]*" (str (.toUpperCase (.substring j 0 1)) (.substring j 1)))]
     (.toLowerCase (apply str (interpose "-" (take-while identity (repeatedly #(re-find m))))))))
 
 (defn class->keyword
@@ -250,14 +251,28 @@
   (and (-> method .getReturnType (isa? ListenerList))
        (re-matches #"get.*Listeners" (-> method .getName))))
 
+(defn get-listener-list-getter-type-from-name
+  "Given a ListenerList getter, return the element type of that ListenerList
+  by guessing the type from the name of the getter."
+  [method]
+  (let [n (.getName method)
+        lname (str "org.apache.pivot.wtk." (.substring n 3 (dec (count n))))]
+    (try (Class/forName lname)
+         (catch ClassNotFoundException e
+           (throwf "listener getter type %s not found in %s" lname n)))))
+
 (defn get-listener-list-getter-type
   "Given a ListenerList getter, return the element type of a that ListenerList.
   When the element type is a ParameterizedType, return its raw type (a simple class)."
   [ll-getter-method]
-  (let [rtype (first (.getActualTypeArguments (.getGenericReturnType ll-getter-method)))]
-    (if (instance? ParameterizedType rtype)
-      (.getRawType rtype)
-      rtype)))
+  (let [gen-rtype (.getGenericReturnType ll-getter-method)]
+    (if (instance? ParameterizedType gen-rtype)
+      (let [rtype (first (.getActualTypeArguments gen-rtype))]
+        (if (instance? ParameterizedType rtype)
+          (.getRawType rtype)
+          rtype))
+      ;; fallback into wild string guessing
+      (get-listener-list-getter-type-from-name ll-getter-method))))
 
 (defn get-listener-list-getters
   "Return a seq of strings representing ListenerList getters of object. Given a
@@ -281,7 +296,7 @@
 ;; invoke manually when neccessary to rebuild listener-type-method-map
 (defn- generate-listener-method-map []
   (let [lgetters (distinct (filter listener-list-getter?
-                                   (mapcat #(.getMethods %) 
+                                   (mapcat #(.getMethods %)
                                            hoeck.pivot.components/components)))]
     (zipmap (map #(-> % get-listener-list-getter-type .getName symbol) lgetters)
             (map #(-> % .getName) lgetters))))
@@ -399,9 +414,19 @@
       MapListener "getMapListeners"
       })
 
+(defn get-listener-list-getter-name
+  "Given a listener, return the getter for its listenerlist."
+  [listener]
+  (let [listener-iface (->> (.getInterfaces (type listener))
+                            (filter #(re-matches #".*Listener$" (.getName %)))
+                            first)]
+    (or (get listener-type-method-map listener-iface)
+        (throwf "cannot find listener-list-getter for %s" (type listener)))))
+
 (defn get-listener-list [object listener]
-  (let [g (first (get-listener-list-getters object listener))
-        _ (when (nil? g) (throwf "Don't know any listener-getter for listener %s." listener))
+  (let [;;g (first (get-listener-list-getters object listener))
+        g (get-listener-list-getter-name listener)
+        _ (when (nil? g) (throwf "Don't know any listener-getter for listener %s on object %s." listener object))
         listener-list (try (jcall object g)
                            (catch Exception e
                              (throw "Don't know how to get ListenerList %s for object %s of type %s"
