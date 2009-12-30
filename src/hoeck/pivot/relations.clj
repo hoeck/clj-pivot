@@ -3,7 +3,8 @@
   (:use clojure.contrib.except
          ;; todo: refactor update functions into their own ns: hoeck.rel.update
         hoeck.pivot.components
-        hoeck.pivot.listeners)
+        hoeck.pivot.listeners
+	hoeck.pivot.forms)
   (:require [clojure.set :as set]
             [hoeck.rel.update :as rel-update])
   (:import (org.apache.pivot.collections List ArrayList)
@@ -59,7 +60,8 @@
                             idx (if (integer? tuple-or-idx)
                                   tuple-or-idx
                                   (.indexOf o tuple-or-idx))]
-                        (when (= idx -1) (throwf "update tuple not found."))
+                        (when (= idx -1) (throwf "relations/update: update tuple %s not found."
+						 tuple-or-idx))
                         (.update o idx (merge (.get o idx) t)))
         :else (apply update (get-pivot-view o)
                      tuple-or-idx
@@ -79,3 +81,30 @@
     (doseq [t tuples]
       (.remove m t))
     r))
+
+;; tools
+
+(defn get-selected-tuple
+  "Return the selected tuple from a table-view."
+  [tv]
+  {:pre [(isa? (type tv) org.apache.pivot.wtk.TableView)]}
+  (.getSelectedRow tv))
+
+(defn select-first-row
+  "Select the first row in a table-view, if any."
+  [tv]
+  (set-property tv :selected-index
+                (if (< 0 (.getLength (.getTableData tv))) 0 -1)))
+
+(defn update-table-view
+  "Given a table view showing a relation, and a form which shows details thereof,
+  update the tableviews data from the forms data. The forms tuple must correspond
+  to the selected-row in the table-view."
+  [form tv]
+  (let [form-tup (get-component-tuple form)
+	row (.getSelectedRow tv)
+	tup (get-selected-tuple tv)]
+    (update (.getTableData tv)
+	    row
+	    (select-keys form-tup (keys tup)))))
+

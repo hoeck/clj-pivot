@@ -253,8 +253,9 @@
   "Given a function, return a org.apache.pivot.wtk.Action calling (f)
   on Action.perform()."
   [f]
-  (proxy [Action] []
-    (perform [] (f))))
+  (when f
+    (proxy [Action] []
+      (perform [] (f)))))
 
 (defn get-listview-selectmode [key]
   (condp = key
@@ -1053,7 +1054,7 @@
   (get-button-data (.getButtonData b))
   "the buttons text (string) or [icon] or [icon, text]."
   :selected (.setSelected b it) (.isSelected b) "a flag"
-  :selected-key (.setSelectedKey b it) (.getSelectedKey b) "key for data binding"
+  :selected-key (.setSelectedKey b (str it)) (.getSelectedKey b) "key for data binding"
   :state (.setState b (get-button-state it)) (.getState b)
   "button state, one of: :selected :mixed :unselected"
   

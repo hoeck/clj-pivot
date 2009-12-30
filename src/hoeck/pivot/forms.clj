@@ -7,9 +7,10 @@
         hoeck.pivot.components
         hoeck.pivot.listeners
         hoeck.pivot.datastructures)
-  (:import (org.apache.pivot.wtk TextInput ListButton BoxPane StackPane)
+  (:import (org.apache.pivot.wtk TextInput ListButton BoxPane StackPane
+				 CalendarButton)
            (org.apache.pivot.util CalendarDate)
-           (java.util Calendar)
+           (java.util Calendar Date)
            (java.text DateFormat DecimalFormat ParseException)
            (java.sql Timestamp)))
 
@@ -35,7 +36,8 @@
 ;; typed text-inputs
 
 (defn bigdec-validator [s]
-  (re-matches #"[0-9]*,?[0-9]+" (.trim s)))
+  (or (empty? (.trim s))
+      (re-matches #"[0-9]*,?[0-9]+" (.trim s))))
 
 (defn read-bigdec
   "Interpret s as a BigDecimal and return it or 0.0M otherwise"
@@ -91,7 +93,7 @@
   (-> (DateFormat/getTimeInstance DateFormat/SHORT) (.format ts)))
 
 (defn current-timestamp
-  "Return a timestamp of the current time."
+  "Return a timestamp of the current date/time, optionally"
   []
   (-> (Calendar/getInstance)
       .getTimeInMillis
@@ -105,16 +107,26 @@
 
 (defn time-validator [s] (re-matches #"[0-9]{1,2}+:[0-9]{2}" (.trim s)))
 
+(defn date->caldate
+  "For some descendant of java.util.Date."
+  [date]
+  (CalendarDate. (doto (Calendar/getInstance) (.setTime date))))
+
+(defn caldate->sqldate [calendar-date]
+  (java.sql.Date. (.getTimeInMillis (.toCalendar calendar-date))))
+
 (defn timestamp-input
   "Returns a combo control, consisting of a Calendarbutton and a
   text-input for hh:mm.
   .load and .store deals with java.sql.timestamps.
-  args: :timestamp-key .. the key (string or keyword) for data-binding, immutable."
+  args: :timestamp-key .. the key (string or keyword) for data-binding, immutable.
+        :text-input .. a textinput to use for time editing (optional)
+        :calendar-button .. a calendarbutton to use for date edtiting (optional)"
   [& args]
   (let [args (apply hash-map args)
         ts-key (:timestamp-key args)
-        cal (calendar-button)
-        clk (text-input :styles  {:invalid-background-color invalid-background-color}
+        cal (or (:calendar-button args) (calendar-button))
+        clk (text-input :self (or (:text-input args) (text-input))
                         :validator time-validator
                         :text-size 6
                         :max-length 10)
@@ -129,6 +141,23 @@
                       cal clk)]
     comp))
 
+(defn date-input
+  "Returns a pivot CalendarButton which loads and stores a java.sql.Date.
+  args: :date-key .. the key (string or keyword) for data--binding, immutable.
+        :calendar-button .. optionally a specific calendarbutton to use."
+  [& args]
+  (let [args (apply hash-map args)
+	dkey (str (:date-key args))
+	cal (or (:calendar-button args) (calendar-button))
+	di (stackpane :self (proxy [StackPane] []
+			      (load [m] (when-let [d (and (.containsKey m dkey) (.get m dkey))]
+					  (set-property cal :selected-date (date->caldate d))))
+			      (store [m] (let [d (get-property cal :selected-date)]
+					   (.put m dkey (caldate->sqldate d)))))
+		      cal)]
+    di))
+
+
 ;; masks empty forms (load with null), unmasks non empty forms (load with non-nil)
 
 (defn mask-pane
@@ -136,15 +165,18 @@
    unmasks non empty forms (.load with non-nil).
   args: :msg .. the text of the label which masks component
         :empty? .. when true, mask-pane is initially in empty state
-                   defaults to true"
+                   defaults to true
+        :background-color .. the color to shadow the component with, a vector of
+                             [r g b] in ranges from 0-255, defaults to white."
   [& args]
   (let [[args [c]] (parse-component-args args)
+	bg-col (or (:background-color args) [255 255 255])
         mask-component (table-pane :cols [[1]]
                                    :visible (:empty? args true)
                                    (table-pane-row 
                                     :height [1] (label :styles {:horizontal-alignment :center
                                                                 :vertical-alignment :center
-                                                                :background-color [255 255 255 200]
+                                                                :background-color (conj bg-col 200)
                                                                 :font-italic true}
                                                        :text (:msg args ""))))]
     (stackpane :self (proxy [StackPane] []
@@ -154,5 +186,4 @@
                              (when-not (nil? m) (.load c m))))
                c
                mask-component)))
-
 
