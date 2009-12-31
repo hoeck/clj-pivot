@@ -19,6 +19,32 @@
         <tstamp/>
         <mkdir dir="${classes.dir}"/>
     </target>
+
+    <target name="gen-class" 
+            depends="init"
+            description="generate the Application class">
+        <fail unless="has-clojure"> 
+  You have not defined a path to clojure.jar so I can't generate my classes. 
+  Run "ant -Dclojure.jar=&lt;...path to clojure.jar..&gt;" to tell me where clojure is.
+        </fail>
+        <fail unless="has-clojure-contrib"> 
+  You have not defined a path to clojure-contrib.jar so I can't generate my classes. 
+  Run "ant -Dclojure-contrib.jar=&lt;...path to clojure-contrib.jar..&gt;" to tell me where clojure is.
+        </fail>
+        <java classname="clojure.lang.Compile">
+            <classpath>
+                <path location="${classes.dir}"/>
+                <path location="${src.dir}"/>
+                <path location="${clojure.jar}"/>
+                <path location="${clojure-contrib.jar}"/>
+                <fileset dir="${libs.dir}">
+                  <include name="**/*.jar"/>
+                </fileset>
+            </classpath>
+            <sysproperty key="clojure.compile.path" value="${classes.dir}"/>
+            <arg value="hoeck.pivot.Application"/>
+        </java>
+    </target>
     
     <target name="gen-classes" 
             depends="init"
