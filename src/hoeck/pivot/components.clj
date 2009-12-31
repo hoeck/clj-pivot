@@ -38,7 +38,7 @@
                                  TablePane TablePane$Column TablePane$Row
                                  MovieView
 				 ;; buttons
-				 Button Button$Group PushButton RadioButton
+				 Button PushButton RadioButton ButtonGroup
 				 Checkbox LinkButton Button$State
                                  ;; other components
                                  Component 
@@ -79,7 +79,6 @@
                                          TableViewNumberCellRenderer
                                          TableViewCellEditor
                                          TableViewRowEditor
-                                         ListViewColorRenderer
                                          ListViewItemRenderer
                                          ListViewItemEditor
                                          TreeViewNodeRenderer
@@ -356,8 +355,7 @@
 (defn make-list-view-renderer [arg]
   (if (keyword? arg)
     (condp = arg
-      :default (ListViewItemRenderer.)
-      :color (ListViewColorRenderer.))))
+      :default (ListViewItemRenderer.))))
 
 (defn make-list-view-editor [arg]
   (if (keyword? arg)
@@ -1046,8 +1044,8 @@
 (defproperties Button [b]
   :action (.setAction b (make-button-action it)) (.getAction b)
   "an Action (a function without args, see make-button-action)"
-  :group (.setGroup b (if (isa? (type it) Button$Group) it (str it))) (.getGroup b)
-  "the button group, either sth stringable or a Button$Group"
+  :group (.setGroup b (if (instance? ButtonGroup it) it (str it))) (.getGroup b)
+  "the button group, either sth stringable or a ButtonGroup"
   
   :data
   (.setButtonData b (make-button-data it))

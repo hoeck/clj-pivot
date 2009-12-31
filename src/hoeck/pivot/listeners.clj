@@ -14,8 +14,8 @@
 	    AccordionAttributeListener AccordionListener
 	    AccordionSelectionListener ActionClassListener ActionListener
 	    ActivityIndicatorListener AlertListener BorderListener
-	    BoxPaneListener Button$GroupListener
-	    Button$NamedGroupDictionaryListener ButtonListener
+	    BoxPaneListener ButtonGroupListener
+	    ButtonListener
 	    ButtonPressListener ButtonStateListener CalendarButtonListener
 	    CalendarButtonSelectionListener CalendarListener
 	    CalendarSelectionListener CardPaneListener ClipboardContentListener
@@ -64,8 +64,8 @@
 		AccordionAttributeListener AccordionListener
 		AccordionSelectionListener ActionClassListener ActionListener
 		ActivityIndicatorListener AlertListener BorderListener
-		BoxPaneListener Button$GroupListener
-		Button$NamedGroupDictionaryListener ButtonListener
+		BoxPaneListener ButtonGroupListener
+		ButtonListener
 		ButtonPressListener ButtonStateListener CalendarButtonListener
 		CalendarButtonSelectionListener CalendarListener
 		CalendarSelectionListener CardPaneListener ClipboardContentListener
@@ -392,8 +392,6 @@
       MenuBarListener "getMenuBarListeners",
       ;;ComponentClassListener "getComponentClassListeners", ;; static!
       SliderListener "getSliderListeners",
-      Button$NamedGroupDictionaryListener
-      "getNamedGroupDictionaryListeners",
       TabPaneListener "getTabPaneListeners",
       TextInputListener "getTextInputListeners",
       TableViewRowListener "getTableViewRowListeners",
