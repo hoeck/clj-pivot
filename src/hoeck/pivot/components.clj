@@ -86,7 +86,8 @@
                                          TreeViewNodeEditor
 					 TreeBranch
 					 TreeNode
-                                         ButtonData)
+                                         ButtonData
+                                         ListItem)
            (org.apache.pivot.wtk.text.validation Validator)
            (org.apache.pivot.util Filter CalendarDate)
 	   (org.apache.pivot.collections Map Dictionary)
@@ -175,7 +176,10 @@
       :invalid-color ["invalidColor" get-color]
       :color ["color" get-color]
       :background-color ["backgroundColor" get-color]
-      :border-color ["borderColor" get-color]})
+      :border-color ["borderColor" get-color]
+      :title-bar-color ["titleBarColor" get-color]
+      :title-bar-background-color ["titleBarBackgroundColor" get-color]
+      :title-bar-border-color ["titleBarBorderColor" get-color]})
 
 (defn set-styles
   "set the style of a component using style-setters to translate requests to pivot."
@@ -239,15 +243,24 @@
          bd))
 
 (defn make-button-data
-  "Return a ButtonData object if input is a vector of
-  [icon & [text]], otherwise just return the argument."
+  "Return a ButtonData object if input is a vector of [icon & [text]],
+   a hashmap containing :text, :icon and more keys resulting in a 
+  ButtonData object implementing clojure.lang.ILookup.
+  otherwise just return the argument."
   ([arg] 
-     (if (vector? arg)
-       (let [[icon & [text]] arg]
-         (if text 
-           (ButtonData. (get-icon icon) (str text))
-           (ButtonData. (get-icon icon))))
-       arg)))
+     (cond (vector? arg)
+           (let [[icon & [text]] arg]
+             (if text 
+               (ButtonData. (get-icon icon) (str text))
+               (ButtonData. (get-icon icon))))
+           (map? arg)
+           (proxy
+               [ButtonData clojure.lang.ILookup]
+               [(when-let [i (:icon arg)] (get-icon i))
+                (when-let [t (:text arg)] (str t))]
+             (valAt ([k] (get arg k))
+                    ([k nf] (get arg k nf))))
+           :else arg)))
 
 (defn make-button-action 
   "Given a function, return a org.apache.pivot.wtk.Action calling (f)
@@ -256,6 +269,27 @@
   (when f
     (proxy [Action] []
       (perform [] (f)))))
+
+(defn make-list-item
+  ;; basically the same as ButtonData
+  "Return a ListItem object if input is a vector of [icon & [text]],
+   a hashmap containing :text, :icon and more keys resulting in a 
+  ButtonData object implementing clojure.lang.ILookup.
+  otherwise just return the argument."
+  ([arg]
+     (cond (vector? arg)
+           (let [[icon & [text]] arg]
+             (if text 
+               (ListItem. (get-icon icon) (str text))
+               (ListItem. (get-icon icon))))
+           (map? arg)
+           (proxy
+               [ListItem clojure.lang.ILookup]
+               [(when-let [i (:icon arg)] (get-icon i))
+                (when-let [t (:text arg)] (str t))]
+             (valAt ([k] (get arg k))
+                    ([k nf] (get arg k nf))))
+           :else arg)))
 
 (defn get-listview-selectmode [key]
   (condp = key
@@ -425,15 +459,15 @@
   If the first argument is a hashmap, return it and the remaing arguments."
   [arglist]
   (if (map? (first arglist))
-    [(first arglist) (rest arglist)])
-  (loop [a arglist
-         args {}]
-    (if (seq a)
-      (let [[k v & more] a]
-        (if (keyword? k)
-          (recur more (assoc args k v))
-          [args a]))
-      [args a])))
+    [(first arglist) (rest arglist)]
+    (loop [a arglist
+           args {}]
+      (if (seq a)
+        (let [[k v & more] a]
+          (if (keyword? k)
+            (recur more (assoc args k v))
+            [args a]))
+        [args a]))))
 
 ;;(parse-component-args [:a 1 :b 2 (BoxPane.) (Border.) (Border.)])
 
