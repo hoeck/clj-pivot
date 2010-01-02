@@ -24,7 +24,7 @@
 	hoeck.pivot.datastructures
         hoeck.pivot.icons)
   (:require [hoeck.pivot.Application :as app]
-            ;;[hoeck.pivot.content :as content]
+            [clojure.set :as set]
 	    [clojure.xml :as xml])
   (:import (org.apache.pivot.wtk DesktopApplicationContext Application Display
                                  ;; containers
@@ -677,7 +677,13 @@
   :user-name
   (set-user-data c {:name it})
   (.get (.getUserData c) ":name")
-  "The userdata :name content, shorthand for (set-property c :user {:name 'name})")
+  "The userdata :name content, shorthand for (set-property c :user {:name 'name})"
+  
+  :user-tags
+  (set-user-data c {:tags (if (keyword? it) #{it} it)})
+  (.get (.getUserData c) ":tags")
+  "user-tags, reside in :user under :tags key, may be a set of keys or a single key.
+  Returns always a set")
 
 (defproperties Container [c]
   :components 
@@ -1422,16 +1428,22 @@
                {})))
 
 (defn find-components
-  "Beginning at root, return all components matching name-or-f.
-  name-f-or-regex may be a keyword, symbol, regex or function. Symbols are
-  compared with the user-name. Regexes are matched against the user-name and
-  functions are called for each component and should act like predicates."
-  [root-component name-f-or-regex]  
-  (filter (cond (fn? name-f-or-regex)
-                  name-f-or-regex
-                (instance? java.util.regex.Pattern name-f-or-regex)
-                  #(re-matches name-f-or-regex (-> % (get-property :user-name) name))
-                :else #(= name-f-or-regex (get-property % :user-name)))
+  "Beginning at root, return all components matching expr.
+  expr may be a keyword, symbol, regex, set or predicate function.
+  Symbols and keywords are compared with the :user-name.
+  Regexes are matched against the user-name.
+  Functions are called for each component.
+  Sets are intersected with :user-tags, and match on a nonempty result."
+  [root-component expr]  
+  (filter (cond (fn? expr) expr
+                (instance? java.util.regex.Pattern expr)
+                  #(re-matches expr (-> % (get-property :user-name) name))
+                (set? expr)
+                  (if (next expr)
+                    #(-> % (get-property :user-tags) (set/intersection expr) empty? not)
+                    #(contains? (get-property % :user-tags) (first expr)))
+                :else 
+                  #(= expr (get-property % :user-name)))
           (tree-seq branch-property get-children root-component)))
 
 (defn find-component
