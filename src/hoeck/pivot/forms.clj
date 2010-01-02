@@ -55,20 +55,77 @@
     :format .. the format string to display the decimal, defaults to \"%.4f\"
   :text-key is required."
   [& args]
-  (apply text-input :self (proxy [TextInput] []
-                            (load [m] (when (.containsKey m (get-property this :text-key))
-                                        (let [v (.get m (get-property this :text-key))]
-                                          (set-property this :text
-                                                        (format (:format args "%.4f")
-                                                                (cond (instance? BigDecimal v) v
-                                                                      (nil? v) (BigDecimal. 0)
-                                                                      (number? v) (BigDecimal. v)
-                                                                      :else (throw-arg "expect some kind of number to bigdec-input, not %s" v)))))))
-                            (store [m] (.put m (get-property this :text-key) (read-bigdec (get-property this :text)))))
-         :validator bigdec-validator
-         :styles {:invalid-background-color invalid-background-color}
+  (let [args (apply hash-map args)] 
+    (text-input (merge {:self (proxy [TextInput] []
+                                (load [m] (when (.containsKey m (get-property this :text-key))
+                                            (let [v (.get m (get-property this :text-key))]
+                                              (set-property this :text
+                                                            (format (:format args "%.4f")
+                                                                    (cond (instance? BigDecimal v) v
+                                                                          (nil? v) (BigDecimal. 0)
+                                                                          (number? v) (BigDecimal. v)
+                                                                          :else (throw-arg "expect some kind of number to bigdec-input, not %s" v)))))))
+                                (store [m] (.put m (get-property this :text-key) (read-bigdec (get-property this :text)))))
+                        :validator bigdec-validator
+                        :styles (merge (:styles args) {:invalid-background-color invalid-background-color})}
+                        (dissoc args :format :styles)))))
+
+;; a nil aware textinput
+
+(defn safe-text-input
+  "Like textinput, but handle a load of a nil value as an empty string."
+  [& args]
+  (apply text-input 
+         :self (proxy [TextInput] []
+                 (load [m] (let [k (.getTextKey this)]
+                             (when (.containsKey m k)
+                               (if (.get m k)
+                                 (proxy-super load m)
+                                 (proxy-super load 
+                                              (make-dictionary {k ""})))))))
          args))
 
+(defn safe-list-button
+  "Listbutton wich does not blow up on nil data loads."
+  [& args]
+  (apply list-button
+         :self (proxy [ListButton] []
+                 (load [m] (let [k (.getSelectedItemKey this)]
+                             (when (.containsKey m k)
+                               (if (.get m k)
+                                 (proxy-super load m)
+                                 (proxy-super load 
+                                              (make-dictionary {k ""})))))))
+         args))
+
+
+(defn make-dictionary-button-list-data [r display-key value-key]
+  (make-list (map #(make-list-item {:text (get % display-key)
+                                    :value (get % value-key)})
+                  r)))
+
+(defn dictionary-button
+  "A list-button component to choose a single tuple from a relation of tuples."
+  [relation display-key value-key & listbutton-args]
+  (let [d-data (make-dictionary-button-list-data relation display-key value-key)
+        find-item (fn [v] (first (filter #(= (:value %) v) d-data)))]
+    (apply list-button
+           :self (proxy [ListButton] []
+                   (load [m] (let [k (.getSelectedItemKey this)]
+                               (when (.containsKey m k)
+                                 (let [li (find-item (.get m k))]
+                                   (if (nil? li)
+                                     (.setSelectedIndex this -1) ;; clear
+                                     (set-property this :selected-item li))))))
+                   (store [m] (.put m (.getSelectedItemKey this)
+                                    (when-let [li (get-property this :selected-item)]
+                                      (get li :value)))))
+           :list-data d-data
+           listbutton-args)))
+
+(comment
+  (dictionary-button #{{:id 1 :name "A"} {:id 2 :name "B"}} :name :id)
+  )
 
 ;; timestamp control
 
