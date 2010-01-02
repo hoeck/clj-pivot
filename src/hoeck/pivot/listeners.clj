@@ -429,8 +429,8 @@
         _ (when (nil? g) (throwf "Don't know any listener-getter for listener %s on object %s." listener object))
         listener-list (try (jcall object g)
                            (catch Exception e
-                             (throw "Don't know how to get ListenerList %s for object %s of type %s"
-                                    g object (type object))))]
+                             (throwf "Don't know how to get ListenerList %s for object %s of type %s"
+                                     g object (type object))))]
     listener-list))
 
 (defn add-listener
@@ -511,3 +511,27 @@
   [f]
   (proxy [Action] []
     (perform [] (f))))
+
+;; meta listeners
+
+(defn data-change-listener*
+  "Returns an object that implements several <component>-change-listeners
+  at once: text-input, list-button, calendar-button and Button.
+  It implements those types of listeners that fire when the components
+  displayed data changed."
+  [f]
+  (proxy [TextInputTextListener ;; void textChanged(TextInput textInput) 
+          ListButtonSelectionListener ;; void selectedIndexChanged(ListButton listButton, int previousSelectedIndex) 
+          CalendarButtonSelectionListener ;; void selectedDateChanged(CalendarButton calendarButton, CalendarDate previousSelectedDate) 
+          ButtonStateListener ;; void stateChanged(Button button, Button.State previousState)
+          ] []
+    (textChanged [& _] (f))
+    (selectedIndexChanged [& _] (f))
+    (selectedDateChanged [& _] (f))
+    (stateChanged [& _] (f))))
+
+(defmacro data-change-listener
+  "Macro wrapper around data-change-listener*."
+  [& body]
+  `(data-change-listener* (fn [] ~@body)))
+
