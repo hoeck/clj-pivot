@@ -166,12 +166,14 @@
       :delimiter ["delimiter" str]
       :show-first-section-heading ["showFirstSectionHeading" boolean]
       :opaque ["opaque" boolean]
+      :wrap-text ["wrapText" boolean]
       ;; tablePane
       :show-horizontal-grid-lines ["showHorizontalGridLines" boolean]
       :show-vertical-grid-lines ["showVerticalGridLines" boolean]
       :horizontal-spacing ["horizontalSpacing" int]
       :vertical-spacing ["verticalSpacing" int]
       ;; colors
+      :active-tab-color ["activeTabColor" get-color]
       :invalid-background-color ["invalidBackgroundColor" get-color]
       :invalid-color ["invalidColor" get-color]
       :color ["color" get-color]
@@ -521,14 +523,16 @@
     (apply merge (map property-definition-map types))))
 
 (defn set-properties
-  "Set properties of object known as name to values found in the prop hashmap"  
+  "Set properties of object known as name to values found in the prop hashmap.
+  Return the object. Throw an Exception if a key is not a property of o."
   ([o props]
      (let [p (get-all-property-defs o)
 	   get-setter #(get-in p [% :setter])]
        (doseq [[k v] props]
 	 (if-let [s (get-setter k)]
 	   (s o v)
-	   (throwf "Unknown property %s for object %s" k o))))))
+	   (throwf "Unknown property %s for object %s" k o)))
+       o)))
 
 (defn set-property
   "Set a single property of a component and return the component."
@@ -629,7 +633,9 @@
   :height (.setHeight c it) (.getHeight c) "Height"
   :width (.setWidth c it) (.getWidth c) "Width"
   :visible (.setVisible c (boolean it)) (.isVisible c) "Visible flag"
-  
+
+  :parent nil (.getParent c) "The components parent, read-only."
+
   :pr-w
   (set-component-width c it)  
   [(.getMinimumPreferredWidth c) (.getPreferredWidth c) (.getMaximumPreferredWidth c)]
@@ -680,10 +686,14 @@
   "The userdata :name content, shorthand for (set-property c :user {:name 'name})"
   
   :user-tags
-  (set-user-data c {:tags (if (keyword? it) #{it} it)})
+  (set-user-data c {:tags (cond (keyword? it) (conj (or (.get (.getUserData c) ":tags") #{}) it)
+                                (nil? it) #{}
+                                (set? it) (reduce conj (or (.get (.getUserData c) ":tags") #{}) it)
+                                :else (throwf "only keywords, nil or sets are accepted as user-tags"))})
   (.get (.getUserData c) ":tags")
   "user-tags, reside in :user under :tags key, may be a set of keys or a single key.
-  Returns always a set")
+  Returns always a set. Setting is always ADDs a key to the user-tags.
+  nil removes all keys.")
 
 (defproperties Container [c]
   :components 
@@ -776,7 +786,14 @@
 
 
 (defproperties CardPane [c]
-  :selected-index (.setSelectedIndex c it) (.getSelectedIndex c) "the index of the selected (== shown) component")
+  :selected-index
+  (.setSelectedIndex
+   c (cond (integer? it) it
+           (instance? Component it) (.indexOf c it)
+           :else (throwf "only integer of components allowed, not  %s" it)))
+  (.getSelectedIndex c)
+  "the index of the selected (== shown) component. Setable with an integer or a component.")
+
 
 (defcomponent cardpane [args components]
   (with-component [p CardPane]
@@ -878,7 +895,15 @@
 
 (defproperties TabPane [t]
   :corner (.setCorner t it) (.getCorner t) "set/get a corner component"
-  :selected-index (.setSelectedIndex t it) (.getSelectedIndex t) "the currently selected tab index")
+  :selected-index (.setSelectedIndex t it) (.getSelectedIndex t)
+  "the currently selected tab index"
+  :tabs
+  (let [ts (.getTabs t)]
+    (.remove ts 0 (.getLength ts))
+    (doseq [add-tab-f it]
+      (add-tab-f ts)))
+  (.getTabs t)
+  "Set the tabs (see `tabpane-panel').")
 
 (defcomponent tabpane [args tabpane-panel-functions]
   (with-component [t TabPane]
@@ -1028,7 +1053,13 @@
   :select-mode (.setSelectMode t (get-table-view-select-mode it)) (.getSelectMode t)
   "the row select mode, one of: :multi :single :none"
   
-  :data (.setTableData t it) (.getTableData t) "a List of Dictionaries of strings to any value or a list of javabeans")
+  :data (.setTableData t it) (.getTableData t) "a List of Dictionaries of strings to any value or a list of javabeans"
+  :cols 
+  (let [cs (.getColumns t)]
+    (when (< 0 (.getLength cs)) (.remove cs 0 (.getLength cs)))
+    (doseq [c it] (.add cs c)))
+  (.getColumns t)
+  "The table-views columns. A list or vector of table-view-columns.")
 
 (defcomponent table-view [args columns] ;; actually, components are TableView$Columns
   (with-component [t TableView]
@@ -1402,6 +1433,10 @@
 
 (set-documentation menu-popup (MenuPopup.) :keys)
 
+;; component misc
+
+(defn focused-component []
+  (Component/getFocusedComponent))
 
 ;; component tree, using :user to identify components
 
@@ -1435,7 +1470,8 @@
   Functions are called for each component.
   Sets are intersected with :user-tags, and match on a nonempty result."
   [root-component expr]  
-  (filter (cond (fn? expr) expr
+  (filter (cond (nil? expr) (constantly false)
+                (fn? expr) expr
                 (instance? java.util.regex.Pattern expr)
                   #(re-matches expr (-> % (get-property :user-name) name))
                 (set? expr)
@@ -1447,10 +1483,14 @@
           (tree-seq branch-property get-children root-component)))
 
 (defn find-component
-  "Same as find-components but return the first component only."
+  "Same as find-components but return the first component only.
+  Throw an exception if more than one component has been found."
   [root-component name-f-or-regex]
-  (first (find-components root-component name-f-or-regex)))
-
+  (let [[h & t] (find-components root-component name-f-or-regex)]
+    (if (seq t)
+      (throwf "More than one component found for %s and clause %s"
+              root-component name-f-or-regex)
+      h)))
 
 ;; slow!
 (defn component-tuple [c]

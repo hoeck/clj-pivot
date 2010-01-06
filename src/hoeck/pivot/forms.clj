@@ -14,9 +14,7 @@
            (java.text DateFormat DecimalFormat ParseException)
            (java.sql Timestamp)))
 
-
 (def invalid-background-color [180 0 0 60])
-
 
 ;; data binding
 
@@ -198,7 +196,7 @@
                       cal clk)]
     comp))
 
-(defn date-input
+(defn date-button
   "Returns a pivot CalendarButton which loads and stores a java.sql.Date.
   args: :date-key .. the key (string or keyword) for data--binding, immutable.
         :calendar-button .. optionally a specific calendarbutton to use."
@@ -243,4 +241,6 @@
                              (when-not (nil? m) (.load c m))))
                c
                mask-component)))
+
+
 
