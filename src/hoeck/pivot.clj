@@ -18,8 +18,8 @@
   (:import (org.apache.pivot.wtk DesktopApplicationContext)
            (org.apache.pivot.wtkx WTKXSerializer)
            (org.apache.pivot.collections Dictionary)
-	   (java.net URL)))
-
+	   (java.net URL)
+           (hoeck.pivot AWTExceptionHandler)))
 
 (def appstate (atom {}))
 
