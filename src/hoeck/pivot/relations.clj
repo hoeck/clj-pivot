@@ -9,7 +9,9 @@
             [hoeck.rel.update :as rel-update])
   (:import (org.apache.pivot.collections List ArrayList)
            (org.apache.pivot.collections.concurrent SynchronizedList)
-           (org.apache.pivot.util ListenerList)))
+           (org.apache.pivot.util ListenerList)
+           (org.apache.pivot.wtk SortDirection)
+           (java.util Date)))
 
 (defn pivot-list 
   "Given a relation, return a pivot List of its tuples."
@@ -107,4 +109,39 @@
     (update (.getTableData tv)
 	    row
 	    (select-keys form-tup (keys tup)))))
+
+
+;; a sort-handler: (add-listener (table-view-header ..) table-view-sort-handler)
+;; sorts the given column on header presses
+
+(defn- compare-to  [a b]
+  (cond (and (number? a) (number? b))
+          (< a b)
+        (and (instance? Date a) (instance? Date b))
+          (.compareTo a b)
+        :else
+          (.compareTo (str a) (str b))))
+
+(def table-view-sort-handler
+     (table-view-header-press-listener {hd :table-view-header, idx :int}
+       :header-pressed
+       (let [tv (get-property hd :table-view)
+             cols (get-property tv :cols)
+             col (.get cols idx)
+             colkey (keyword (get-property col :name))
+             sd (get-property col :sort-direction)]
+         (dotimes [i (.getLength cols)]
+           (.setSortDirection
+             (.get cols i)
+              (if (= idx i)
+                (if (or (nil? sd) (= sd SortDirection/DESCENDING))
+                  SortDirection/ASCENDING
+                  SortDirection/DESCENDING)
+                nil)))
+         (when-let [d (get-property tv :data)]
+           (.setComparator
+            d (if (= sd SortDirection/ASCENDING)
+                #(compare-to (get %1 colkey) (get %2 colkey))
+                #(compare-to (get %2 colkey) (get %1 colkey))))))
+       nil))
 
