@@ -61,15 +61,17 @@
                                  ;; menu
                                  Menu MenuBar MenuBar$Item MenuButton Menu$Item Menu$Section MenuPopup
                                  ;; tables
-                                 TableView TableViewHeader
+                                 TableViewHeader
+                                 TableView
 				 TableView$SelectMode TableView$Column
 				 TableView$CellRenderer TableView$RowEditor
                                  ;; enums, structs
                                  Orientation SortDirection Insets Point Bounds
 				 Dimensions VerticalAlignment HorizontalAlignment
                                  ;; button-action
-                                 Action)
-           
+                                 Action
+                                 ;; textdeco
+                                 TextDecoration)
            (org.apache.pivot.wtk.content TableViewBooleanCellRenderer 
                                          TableViewCellRenderer
                                          TableViewDateCellRenderer
@@ -91,6 +93,7 @@
            (org.apache.pivot.wtk.text.validation Validator)
            (org.apache.pivot.util Filter CalendarDate)
 	   (org.apache.pivot.collections Map Dictionary)
+           (org.apache.pivot.wtk.skin CardPaneSkin$SelectionChangeEffect)
 	   (java.awt Color Font)
 	   (java.net URL)))
 
@@ -128,6 +131,11 @@
     :plain Font/PLAIN
     :bold Font/BOLD))
 
+(defn get-font
+  "Return a java.awt.Font from a vector, e.g.: [\"Arial\", :plain, 10]"
+  [[name style size]]
+  (Font. name (get-font-style style) size))
+
 (defn get-color [color-keyword-or-vector]
   (let [c color-keyword-or-vector]
     (cond (keyword? c)
@@ -142,6 +150,24 @@
 	  (integer? c) (Color. c)
           (instance? Color c) c
           :else (throw-arg "to get-color: %s" c))))
+
+(defn get-selection-change-effect
+  "Keyword -> CardPaneSkin$SelectionChangeEffect."
+  [k]
+  (condp = k
+      :crossfade CardPaneSkin$SelectionChangeEffect/CROSSFADE,
+      :horizontal-slide CardPaneSkin$SelectionChangeEffect/HORIZONTAL_SLIDE,
+      :vertical-slide CardPaneSkin$SelectionChangeEffect/VERTICAL_SLIDE,
+      :horizontal-flip CardPaneSkin$SelectionChangeEffect/HORIZONTAL_FLIP,
+      :vertical-flip CardPaneSkin$SelectionChangeEffect/VERTICAL_FLIP,
+      :zoom CardPaneSkin$SelectionChangeEffect/ZOOM
+      nil))
+
+(defn get-text-decoration [k]
+  (condp = k
+    :underline TextDecoration/UNDERLINE
+    :strikethrough TextDecoration/STRIKETHROUGH
+    nil))
 
 ;; todo: add more style keywords
 ;; a map of style-keywords to [styleStringKey function]
@@ -158,15 +184,20 @@
       :width ["width" identity]
       :focusable ["focusable" identity]
       :button-padding ["buttonPadding" make-insets]
-      :font ["font" (fn [[name style size]] (Font. name (get-font-style style) size))]
+      :fill ["fill" boolean]
+      :opaque ["opaque" boolean]
+      ;; fonts and text
+      :title-bar-font ["titleBarFont" get-font]
+      :font ["font" get-font]
       :font-size ["fontSize" identity]
       :font-bold ["fontBold" boolean]
       :font-italic ["fontItalic" boolean]
-      :fill ["fill" boolean]
+      :text-decoration ["textDecoration" get-text-decoration]
+      :wrap-text ["wrapText" boolean]
       :delimiter ["delimiter" str]
       :show-first-section-heading ["showFirstSectionHeading" boolean]
-      :opaque ["opaque" boolean]
-      :wrap-text ["wrapText" boolean]
+      ;; cardpane
+      :selection-change-effect ["selectionChangeEffect" get-selection-change-effect]
       ;; tablePane
       :show-horizontal-grid-lines ["showHorizontalGridLines" boolean]
       :show-vertical-grid-lines ["showVerticalGridLines" boolean]
@@ -1047,7 +1078,7 @@
   (if (number? it) 
     (.setSelectedIndex t it)
     (let [[s e] it] (.setSelectedRange t s e))) ;; TODO: add support for ranges [[s0 e0] [s1 e1] ..]
-  (.getSelectedRows t)
+  (.getSelectedIndex t)
   "sets a selected-row or a range of rows [start end]"
   
   :select-mode (.setSelectMode t (get-table-view-select-mode it)) (.getSelectMode t)
@@ -1105,7 +1136,13 @@
 
   :data-renderer (.setDataRenderer t it) (.getDataRenderer t) 
   "the header-data renderer (a function which calls the component which
-  displays header data, eg. a simple label or a button")
+  displays header data, eg. a simple label or a button"
+;; pivot 1.4??
+;;  :sort-mode
+;;  (.setSortMode t (get-table-view-header-sort-mode it))
+;;  (.getSortMode t)
+;;  "Sort mode: :multi :single or :none columns."
+  )
 
 (defcomponent table-view-header [args]
   (with-component [t TableViewHeader]))
