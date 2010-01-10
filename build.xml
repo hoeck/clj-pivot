@@ -43,6 +43,7 @@
             </classpath>
             <sysproperty key="clojure.compile.path" value="${classes.dir}"/>
             <arg value="hoeck.pivot.Application"/>
+            <arg value="hoeck.pivot.AWTExceptionHandler"/>
         </java>
     </target>
     

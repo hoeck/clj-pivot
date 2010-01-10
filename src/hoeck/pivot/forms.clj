@@ -21,15 +21,16 @@
 (defn set-component-tuple
   "given a component, .load the tuple."
   [component tuple]
-  (.load component (if tuple (make-dictionary tuple) tuple)))
+  (when (and component tuple)
+    (.load component (if tuple (make-dictionary tuple) tuple))))
 
 (defn get-component-tuple
   "given a component, return a tuple of its bound values."
   [component]
-  (let [d (make-dictionary {})]
-    (.store component d)
-    (dictionary->hashmap d)))
-
+  (when component
+    (let [d (make-dictionary {})]
+      (.store component d)
+      (dictionary->hashmap d))))
 
 ;; typed text-inputs
 
@@ -68,7 +69,7 @@
                         :styles (merge (:styles args) {:invalid-background-color invalid-background-color})}
                         (dissoc args :format :styles)))))
 
-;; a nil aware textinput
+;; a nil aware text-input
 
 (defn safe-text-input
   "Like textinput, but handle a load of a nil value as an empty string."
@@ -110,7 +111,7 @@
     (apply list-button
            :self (proxy [ListButton] []
                    (load [m] (let [k (.getSelectedItemKey this)]
-                               (when (.containsKey m k)
+                               (when (and m (.containsKey m k))
                                  (let [li (find-item (.get m k))]
                                    (if (nil? li)
                                      (.setSelectedIndex this -1) ;; clear
@@ -122,7 +123,9 @@
            listbutton-args)))
 
 (comment
-  (dictionary-button #{{:id 1 :name "A"} {:id 2 :name "B"}} :name :id)
+  (dictionary-button #{{:id 1 :name "A"} {:id 2 :name "B"}} :name :id
+                     :selected-item-key :a)
+    
   )
 
 ;; timestamp control
@@ -203,15 +206,17 @@
   [& args]
   (let [args (apply hash-map args)
 	dkey (str (:date-key args))
-	cal (or (:calendar-button args) (calendar-button))
+	cal (or (:calendar-button args)
+                (apply calendar-button (apply concat (dissoc args :date-key :calendar-button))))
 	di (stackpane :self (proxy [StackPane] []
-			      (load [m] (when-let [d (and (.containsKey m dkey) (.get m dkey))]
-					  (set-property cal :selected-date (date->caldate d))))
+			      (load [m] (when (and m (.containsKey m dkey))
+                                          (if-let [d (.get m dkey)]
+                                            (set-property cal :selected-date (date->caldate d))
+                                            (set-property cal :data nil))))
 			      (store [m] (let [d (get-property cal :selected-date)]
 					   (.put m dkey (caldate->sqldate d)))))
 		      cal)]
     di))
-
 
 ;; masks empty forms (load with null), unmasks non empty forms (load with non-nil)
 
@@ -241,6 +246,4 @@
                              (when-not (nil? m) (.load c m))))
                c
                mask-component)))
-
-
 

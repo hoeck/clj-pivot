@@ -215,7 +215,8 @@
   and a :method and :this (referring to the listener) as a hashmap.
   If a listener method has two or more primitive args, they are wrapped in a 
   vector and filed under a single :int, :float etc key in the hashmap.
-  Other arguments are put under their lispified classname in the argument hashmap."
+  Other arguments are put under their lispified classname in the argument hashmap.
+  Wrap all calls to f in a try-catch."
   ([listener-key f]
      (let [l (listener-name listener-key)
 	   l-method-map (listener-map l)
