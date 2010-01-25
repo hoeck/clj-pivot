@@ -3,7 +3,8 @@
   (:use clojure.contrib.except)
   (:import (org.apache.pivot.wtk Keyboard Keyboard$KeyCode
                                  TableView$CellRenderer TableView$RowEditor)
-           (org.apache.pivot.util Vote)))
+           (org.apache.pivot.util Vote)
+           (java.text DateFormat DecimalFormat)))
 
 ;; impose a loading order because there is a circular reference between content and components
 (declare label-cell-renderer)
@@ -37,7 +38,18 @@
       (.put "font" (.get tv-styles "font")))))
 
 (defn cell-value [col tuple default]
-  (get tuple (keyword (get-property col :name)) ""))
+  (get tuple (keyword (get-property col :name)) default))
+
+(defn fixed-label-cell-renderer [text]
+  (fn ([] (label :styles {:horizontal-alignment :left
+                          :vertical-alignment :center
+                          :color [0 0 255]
+                          :padding [2 2 2 2]}))
+    ([{:keys [component, value, column] :as args}]
+       (set-cell-renderer-styles args)
+       (set-property component :text text)
+       (set-property component :styles {:color [0 0 255]
+                                        :text-decoration :underline}))))
 
 (defn label-cell-renderer
   "like a plain cell renderer but renders data from a clojure hashmap instead
@@ -60,6 +72,20 @@
     ([{:keys [component, value, column] :as args}]
        (set-cell-renderer-styles args)
        (set-property component :text (str (display-fn (cell-value column value nil)))))))
+
+(defn label-timestamp-cell-renderer
+  "Render a java.sql.timestamp"
+  []
+  (fn ([] (label :styles {:horizontal-alignment :left
+                          :vertical-alignment :center
+                          :padding [2 2 2 2]}))
+    ([{:keys [component, value, column] :as args}]
+       (set-cell-renderer-styles args)
+       (let [cv (cell-value column value nil)]
+         (when cv (set-property 
+                   component :text 
+                   (str (-> (DateFormat/getDateTimeInstance DateFormat/MEDIUM DateFormat/SHORT)
+                            (.format cv)))))))))
 
 (defn list-button-renderer
   []

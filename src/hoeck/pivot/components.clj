@@ -24,7 +24,7 @@
 	hoeck.pivot.datastructures
         hoeck.pivot.icons)
   (:require [hoeck.pivot.Application :as app]
-            ;;[hoeck.pivot.content :as content]
+            [clojure.set :as set]
 	    [clojure.xml :as xml])
   (:import (org.apache.pivot.wtk DesktopApplicationContext Application Display
                                  ;; containers
@@ -61,15 +61,16 @@
                                  ;; menu
                                  Menu MenuBar MenuBar$Item MenuButton Menu$Item Menu$Section MenuPopup
                                  ;; tables
-                                 TableView TableViewHeader
+                                 TableViewHeader
+                                 TableView
 				 TableView$SelectMode TableView$Column
 				 TableView$CellRenderer TableView$RowEditor
                                  ;; enums, structs
                                  Orientation SortDirection Insets Point Bounds
 				 Dimensions VerticalAlignment HorizontalAlignment
-                                 ;; button-action
-                                 Action)
-           
+                                 TextDecoration Cursor
+                                 ;; misc
+                                 Action MenuHandler)
            (org.apache.pivot.wtk.content TableViewBooleanCellRenderer 
                                          TableViewCellRenderer
                                          TableViewDateCellRenderer
@@ -85,10 +86,12 @@
                                          TreeViewNodeEditor
 					 TreeBranch
 					 TreeNode
-                                         ButtonData)
+                                         ButtonData
+                                         ListItem)
            (org.apache.pivot.wtk.text.validation Validator)
            (org.apache.pivot.util Filter CalendarDate)
 	   (org.apache.pivot.collections Map Dictionary)
+           (org.apache.pivot.wtk.skin CardPaneSkin$SelectionChangeEffect)
 	   (java.awt Color Font)
 	   (java.net URL)))
 
@@ -126,6 +129,11 @@
     :plain Font/PLAIN
     :bold Font/BOLD))
 
+(defn get-font
+  "Return a java.awt.Font from a vector, e.g.: [\"Arial\", :plain, 10]"
+  [[name style size]]
+  (Font. name (get-font-style style) size))
+
 (defn get-color [color-keyword-or-vector]
   (let [c color-keyword-or-vector]
     (cond (keyword? c)
@@ -140,6 +148,24 @@
 	  (integer? c) (Color. c)
           (instance? Color c) c
           :else (throw-arg "to get-color: %s" c))))
+
+(defn get-selection-change-effect
+  "Keyword -> CardPaneSkin$SelectionChangeEffect."
+  [k]
+  (condp = k
+      :crossfade CardPaneSkin$SelectionChangeEffect/CROSSFADE,
+      :horizontal-slide CardPaneSkin$SelectionChangeEffect/HORIZONTAL_SLIDE,
+      :vertical-slide CardPaneSkin$SelectionChangeEffect/VERTICAL_SLIDE,
+      :horizontal-flip CardPaneSkin$SelectionChangeEffect/HORIZONTAL_FLIP,
+      :vertical-flip CardPaneSkin$SelectionChangeEffect/VERTICAL_FLIP,
+      :zoom CardPaneSkin$SelectionChangeEffect/ZOOM
+      nil))
+
+(defn get-text-decoration [k]
+  (condp = k
+    :underline TextDecoration/UNDERLINE
+    :strikethrough TextDecoration/STRIKETHROUGH
+    nil))
 
 ;; todo: add more style keywords
 ;; a map of style-keywords to [styleStringKey function]
@@ -156,25 +182,37 @@
       :width ["width" identity]
       :focusable ["focusable" identity]
       :button-padding ["buttonPadding" make-insets]
-      :font ["font" (fn [[name style size]] (Font. name (get-font-style style) size))]
+      :fill ["fill" boolean]
+      :opaque ["opaque" boolean]
+      ;; fonts and text
+      :title-bar-font ["titleBarFont" get-font]
+      :font ["font" get-font]
       :font-size ["fontSize" identity]
       :font-bold ["fontBold" boolean]
       :font-italic ["fontItalic" boolean]
-      :fill ["fill" boolean]
+      :text-decoration ["textDecoration" get-text-decoration]
+      :wrap-text ["wrapText" boolean]
       :delimiter ["delimiter" str]
       :show-first-section-heading ["showFirstSectionHeading" boolean]
-      :opaque ["opaque" boolean]
+      ;; cardpane
+      :selection-change-effect ["selectionChangeEffect" get-selection-change-effect]
       ;; tablePane
       :show-horizontal-grid-lines ["showHorizontalGridLines" boolean]
       :show-vertical-grid-lines ["showVerticalGridLines" boolean]
       :horizontal-spacing ["horizontalSpacing" int]
       :vertical-spacing ["verticalSpacing" int]
       ;; colors
+      :active-tab-color ["activeTabColor" get-color]
       :invalid-background-color ["invalidBackgroundColor" get-color]
       :invalid-color ["invalidColor" get-color]
       :color ["color" get-color]
       :background-color ["backgroundColor" get-color]
-      :border-color ["borderColor" get-color]})
+      :border-color ["borderColor" get-color]
+      :disabled-background-color ["disabledBackgroundColor" get-color]
+      :disabled-border-color ["disabledBorderColor" get-color]
+      :title-bar-color ["titleBarColor" get-color]
+      :title-bar-background-color ["titleBarBackgroundColor" get-color]
+      :title-bar-border-color ["titleBarBorderColor" get-color]})
 
 (defn set-styles
   "set the style of a component using style-setters to translate requests to pivot."
@@ -238,15 +276,24 @@
          bd))
 
 (defn make-button-data
-  "Return a ButtonData object if input is a vector of
-  [icon & [text]], otherwise just return the argument."
+  "Return a ButtonData object if input is a vector of [icon & [text]],
+   a hashmap containing :text, :icon and more keys resulting in a 
+  ButtonData object implementing clojure.lang.ILookup.
+  otherwise just return the argument."
   ([arg] 
-     (if (vector? arg)
-       (let [[icon & [text]] arg]
-         (if text 
-           (ButtonData. (get-icon icon) (str text))
-           (ButtonData. (get-icon icon))))
-       arg)))
+     (cond (vector? arg)
+           (let [[icon & [text]] arg]
+             (if text 
+               (ButtonData. (get-icon icon) (str text))
+               (ButtonData. (get-icon icon))))
+           (map? arg)
+           (proxy
+               [ButtonData clojure.lang.ILookup]
+               [(when-let [i (:icon arg)] (get-icon i))
+                (when-let [t (:text arg)] (str t))]
+             (valAt ([k] (get arg k))
+                    ([k nf] (get arg k nf))))
+           :else arg)))
 
 (defn make-button-action 
   "Given a function, return a org.apache.pivot.wtk.Action calling (f)
@@ -255,6 +302,27 @@
   (when f
     (proxy [Action] []
       (perform [] (f)))))
+
+(defn make-list-item
+  ;; basically the same as ButtonData
+  "Return a ListItem object if input is a vector of [icon & [text]],
+   a hashmap containing :text, :icon and more keys resulting in a 
+  ButtonData object implementing clojure.lang.ILookup.
+  otherwise just return the argument."
+  ([arg]
+     (cond (vector? arg)
+           (let [[icon & [text]] arg]
+             (if text 
+               (ListItem. (get-icon icon) (str text))
+               (ListItem. (get-icon icon))))
+           (map? arg)
+           (proxy
+               [ListItem clojure.lang.ILookup]
+               [(when-let [i (:icon arg)] (get-icon i))
+                (when-let [t (:text arg)] (str t))]
+             (valAt ([k] (get arg k))
+                    ([k nf] (get arg k nf))))
+           :else arg)))
 
 (defn get-listview-selectmode [key]
   (condp = key
@@ -271,6 +339,24 @@
     (if (instance? Bounds bv)
       (vector (.x bv) (.y bv) (.width bv) (.height bv))
       (let [[x y w h] bv] (Bounds. x y w h)))))
+
+(defn get-cursor [k]
+  (condp = k 
+    :crosshair Cursor/CROSSHAIR
+    :default Cursor/DEFAULT
+    :hand Cursor/HAND
+    :move Cursor/MOVE
+    :resize_east Cursor/RESIZE_EAST
+    :resize_north Cursor/RESIZE_NORTH
+    :resize_north_east Cursor/RESIZE_NORTH_EAST
+    :resize_north_west Cursor/RESIZE_NORTH_WEST
+    :resize_south Cursor/RESIZE_SOUTH
+    :resize_south_east Cursor/RESIZE_SOUTH_EAST
+    :resize_south_west Cursor/RESIZE_SOUTH_WEST
+    :resize_west Cursor/RESIZE_WEST
+    :text Cursor/TEXT
+    :wait Cursor/WAIT
+    nil))
 
 ;; interfaces
 
@@ -334,6 +420,20 @@
       (getWidth [] (.getWidth component))
       ;;void paint(Graphics2D graphics) Paints the visual.
       (paint [graphics] (.paint component graphics)))))
+
+(defn make-context-menu-handler
+  "Return a MenuHandler which calls the function f on configure-context-menu.
+  f must take 4 arguments: a component, a menu, and x y koords of the context click.
+  The result of calling f is used to determine wether more menuhandlers should be invoked.
+  If f is a MenuHandler, return it."
+  [f]
+  (cond (ifn? f)
+        (proxy [MenuHandler] []
+          (configureMenuBar [c mb])
+          (cleanupMenuBar [c mb])
+          (configureContextMenu [c m x y]
+                                (boolean (f c m x y))))
+        :else f))
 
 (defn make-table-view-cell-renderer
   "Return a TableView$CellRenderer, defaults (= arg nil) to
@@ -423,15 +523,15 @@
   If the first argument is a hashmap, return it and the remaing arguments."
   [arglist]
   (if (map? (first arglist))
-    [(first arglist) (rest arglist)])
-  (loop [a arglist
-         args {}]
-    (if (seq a)
-      (let [[k v & more] a]
-        (if (keyword? k)
-          (recur more (assoc args k v))
-          [args a]))
-      [args a])))
+    [(first arglist) (rest arglist)]
+    (loop [a arglist
+           args {}]
+      (if (seq a)
+        (let [[k v & more] a]
+          (if (keyword? k)
+            (recur more (assoc args k v))
+            [args a]))
+        [args a]))))
 
 ;;(parse-component-args [:a 1 :b 2 (BoxPane.) (Border.) (Border.)])
 
@@ -485,14 +585,16 @@
     (apply merge (map property-definition-map types))))
 
 (defn set-properties
-  "Set properties of object known as name to values found in the prop hashmap"  
+  "Set properties of object known as name to values found in the prop hashmap.
+  Return the object. Throw an Exception if a key is not a property of o."
   ([o props]
      (let [p (get-all-property-defs o)
 	   get-setter #(get-in p [% :setter])]
        (doseq [[k v] props]
 	 (if-let [s (get-setter k)]
 	   (s o v)
-	   (throwf "Unknown property %s for object %s" k o))))))
+	   (throwf "Unknown property %s for object %s" k o)))
+       o)))
 
 (defn set-property
   "Set a single property of a component and return the component."
@@ -593,7 +695,9 @@
   :height (.setHeight c it) (.getHeight c) "Height"
   :width (.setWidth c it) (.getWidth c) "Width"
   :visible (.setVisible c (boolean it)) (.isVisible c) "Visible flag"
-  
+
+  :parent nil (.getParent c) "The components parent, read-only."
+
   :pr-w
   (set-component-width c it)  
   [(.getMinimumPreferredWidth c) (.getPreferredWidth c) (.getMaximumPreferredWidth c)]
@@ -641,7 +745,22 @@
   :user-name
   (set-user-data c {:name it})
   (.get (.getUserData c) ":name")
-  "The userdata :name content, shorthand for (set-property c :user {:name 'name})")
+  "The userdata :name content, shorthand for (set-property c :user {:name 'name})"
+  
+  :user-tags
+  (set-user-data c {:tags (cond (keyword? it) (conj (or (.get (.getUserData c) ":tags") #{}) it)
+                                (nil? it) #{}
+                                (set? it) (reduce conj (or (.get (.getUserData c) ":tags") #{}) it)
+                                :else (throwf "only keywords, nil or sets are accepted as user-tags"))})
+  (.get (.getUserData c) ":tags")
+  "user-tags, reside in :user under :tags key, may be a set of keys or a single key.
+  Returns always a set. Setting is always ADDs a key to the user-tags.
+  nil removes all keys."
+
+  :cursor (.setCursor c (get-cursor it)) (.getCursor c) "The cursor, a keyword, see get-cursor"
+
+  :menu-handler (.setMenuHandler c (make-context-menu-handler it)) (.getMenuHandler c)
+  "The components MenuHandler. If supplied a function, installs a context-menu-handler.")
 
 (defproperties Container [c]
   :components 
@@ -734,7 +853,14 @@
 
 
 (defproperties CardPane [c]
-  :selected-index (.setSelectedIndex c it) (.getSelectedIndex c) "the index of the selected (== shown) component")
+  :selected-index
+  (.setSelectedIndex
+   c (cond (integer? it) it
+           (instance? Component it) (.indexOf c it)
+           :else (throwf "only integer of components allowed, not  %s" it)))
+  (.getSelectedIndex c)
+  "the index of the selected (== shown) component. Setable with an integer or a component.")
+
 
 (defcomponent cardpane [args components]
   (with-component [p CardPane]
@@ -836,7 +962,15 @@
 
 (defproperties TabPane [t]
   :corner (.setCorner t it) (.getCorner t) "set/get a corner component"
-  :selected-index (.setSelectedIndex t it) (.getSelectedIndex t) "the currently selected tab index")
+  :selected-index (.setSelectedIndex t it) (.getSelectedIndex t)
+  "the currently selected tab index"
+  :tabs
+  (let [ts (.getTabs t)]
+    (.remove ts 0 (.getLength ts))
+    (doseq [add-tab-f it]
+      (add-tab-f ts)))
+  (.getTabs t)
+  "Set the tabs (see `tabpane-panel').")
 
 (defcomponent tabpane [args tabpane-panel-functions]
   (with-component [t TabPane]
@@ -980,13 +1114,19 @@
   (if (number? it) 
     (.setSelectedIndex t it)
     (let [[s e] it] (.setSelectedRange t s e))) ;; TODO: add support for ranges [[s0 e0] [s1 e1] ..]
-  (.getSelectedRows t)
+  (.getSelectedIndex t)
   "sets a selected-row or a range of rows [start end]"
   
   :select-mode (.setSelectMode t (get-table-view-select-mode it)) (.getSelectMode t)
   "the row select mode, one of: :multi :single :none"
   
-  :data (.setTableData t it) (.getTableData t) "a List of Dictionaries of strings to any value or a list of javabeans")
+  :data (.setTableData t it) (.getTableData t) "a List of Dictionaries of strings to any value or a list of javabeans"
+  :cols 
+  (let [cs (.getColumns t)]
+    (when (< 0 (.getLength cs)) (.remove cs 0 (.getLength cs)))
+    (doseq [c it] (.add cs c)))
+  (.getColumns t)
+  "The table-views columns. A list or vector of table-view-columns.")
 
 (defcomponent table-view [args columns] ;; actually, components are TableView$Columns
   (with-component [t TableView]
@@ -1032,7 +1172,13 @@
 
   :data-renderer (.setDataRenderer t it) (.getDataRenderer t) 
   "the header-data renderer (a function which calls the component which
-  displays header data, eg. a simple label or a button")
+  displays header data, eg. a simple label or a button"
+;; pivot 1.4??
+;;  :sort-mode
+;;  (.setSortMode t (get-table-view-header-sort-mode it))
+;;  (.getSortMode t)
+;;  "Sort mode: :multi :single or :none columns."
+  )
 
 (defcomponent table-view-header [args]
   (with-component [t TableViewHeader]))
@@ -1174,8 +1320,9 @@
   :disbled-filter (.setDisabledNodeFilter t (make-filter it)) (.getDisabledNodeFilter t) "A filter predicate for nodes."
   :node-editor (.setNodeEditor t (get-tree-view-node-editor it)) (.getNodeEditor t) ":default or a editor function, see make-tree-view-node-editor"
   :node-renderer (.setNodeRenderer t (get-tree-view-node-renderer it)) (.getNodeRenderer t) ":default, a TreeView$NodeRenderer or a function implementing it"
-  :select-mode (.setSelectMode t (get-tree-view-select-mode it)) (.getSelectMode t) ":multi :single or :none"
-  :data (.setTreeData t it) (.getTreeData t) "tree data, a list of values, either plain strings or treeviews for the default renderer")
+  :select-mode (.setSelectMode t (get-tree-view-select-mode it)) (.getSelectMode t) ":multi :single or :none, defaults to :single"
+  :data (.setTreeData t it) (.getTreeData t) "tree data, a list of values, either plain strings or treeviews for the default renderer"
+  :selected-path (.setSelectedPath t it) (.getSelectedPath t) "The currently selected path, [TODO: clojureize]")
 
 (defcomponent tree-view [args]
   (with-component [t TreeView]))
@@ -1360,6 +1507,10 @@
 
 (set-documentation menu-popup (MenuPopup.) :keys)
 
+;; component misc
+
+(defn focused-component []
+  (Component/getFocusedComponent))
 
 ;; component tree, using :user to identify components
 
@@ -1386,23 +1537,34 @@
                {})))
 
 (defn find-components
-  "Beginning at root, return all components matching name-or-f.
-  name-f-or-regex may be a keyword, symbol, regex or function. Symbols are
-  compared with the user-name. Regexes are matched against the user-name and
-  functions are called for each component and should act like predicates."
-  [root-component name-f-or-regex]  
-  (filter (cond (fn? name-f-or-regex)
-                  name-f-or-regex
-                (instance? java.util.regex.Pattern name-f-or-regex)
-                  #(re-matches name-f-or-regex (-> % (get-property :user-name) name))
-                :else #(= name-f-or-regex (get-property % :user-name)))
+  "Beginning at root, return all components matching expr.
+  expr may be a keyword, symbol, regex, set or predicate function.
+  Symbols and keywords are compared with the :user-name.
+  Regexes are matched against the user-name.
+  Functions are called for each component.
+  Sets are intersected with :user-tags, and match on a nonempty result."
+  [root-component expr]  
+  (filter (cond (nil? expr) (constantly false)
+                (fn? expr) expr
+                (instance? java.util.regex.Pattern expr)
+                  #(re-matches expr (-> % (get-property :user-name) name))
+                (set? expr)
+                  (if (next expr)
+                    #(-> % (get-property :user-tags) (set/intersection expr) empty? not)
+                    #(contains? (get-property % :user-tags) (first expr)))
+                :else 
+                  #(= expr (get-property % :user-name)))
           (tree-seq branch-property get-children root-component)))
 
 (defn find-component
-  "Same as find-components but return the first component only."
+  "Same as find-components but return the first component only.
+  Throw an exception if more than one component has been found."
   [root-component name-f-or-regex]
-  (first (find-components root-component name-f-or-regex)))
-
+  (let [[h & t] (find-components root-component name-f-or-regex)]
+    (if (seq t)
+      (throwf "More than one component found for %s and clause %s"
+              root-component name-f-or-regex)
+      h)))
 
 ;; slow!
 (defn component-tuple [c]
@@ -1416,3 +1578,8 @@
   "return a relation of components"
   [root]
   (set (map component-tuple (tree-seq branch-property get-children root))))
+
+(defn pprint-styles
+  "Pretty-print the styles of a given component."
+  [component-fn]
+  (-> (component-fn) (get-property :styles) pprint))

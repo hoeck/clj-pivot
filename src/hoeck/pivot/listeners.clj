@@ -49,7 +49,9 @@
 	    WindowActionMappingListener WindowClassListener WindowListener
 	    WindowStateListener
             ;; non listeners:
-            Action)
+            Action
+            ;; component, for ComponentClassListener
+            Component)
            (org.apache.pivot.collections FilteredListListener
                                          ListListener
                                          MapListener
@@ -213,7 +215,8 @@
   and a :method and :this (referring to the listener) as a hashmap.
   If a listener method has two or more primitive args, they are wrapped in a 
   vector and filed under a single :int, :float etc key in the hashmap.
-  Other arguments are put under their lispified classname in the argument hashmap"
+  Other arguments are put under their lispified classname in the argument hashmap.
+  Wrap all calls to f in a try-catch."
   ([listener-key f]
      (let [l (listener-name listener-key)
 	   l-method-map (listener-map l)
@@ -261,45 +264,15 @@
          (catch ClassNotFoundException e
            (throwf "listener getter type %s not found in %s" lname n)))))
 
-(defn get-listener-list-getter-type
-  "Given a ListenerList getter, return the element type of a that ListenerList.
-  When the element type is a ParameterizedType, return its raw type (a simple class)."
-  [ll-getter-method]
-  (let [gen-rtype (.getGenericReturnType ll-getter-method)]
-    (if (instance? ParameterizedType gen-rtype)
-      (let [rtype (first (.getActualTypeArguments gen-rtype))]
-        (if (instance? ParameterizedType rtype)
-          (.getRawType rtype)
-          rtype))
-      ;; fallback into wild string guessing
-      (get-listener-list-getter-type-from-name ll-getter-method))))
-
-(defn get-listener-list-getters
-  "Return a seq of strings representing ListenerList getters of object. Given a
-  listener implemented with the listener-macro, return a list with one getter name which
-  can be used to get the ListenerList of the listeners type.
-  Return only non static listenerlist-getters."
-  ([object]
-     (let [t (type object)]
-       (map (memfn getName) (filter #(and (listener-list-getter? %)
-					  (not (java.lang.reflect.Modifier/isStatic 
-						(.getModifiers %))))
-				    (.getMethods t)))))
-  ([object listener]
-     (let [lt (get-implemented-listener-type listener)
-           t (type object)]
-       (map (memfn getName)
-            (filter #(= (get-listener-list-getter-type %) lt)
-                    (filter listener-list-getter? (.getMethods t)))))))
 
 ;; Listener-type to ListenerList getter method map generation
 ;; invoke manually when neccessary to rebuild listener-type-method-map
-(defn- generate-listener-method-map []
-  (let [lgetters (distinct (filter listener-list-getter?
-                                   (mapcat #(.getMethods %)
-                                           hoeck.pivot.components/components)))]
-    (zipmap (map #(-> % get-listener-list-getter-type .getName symbol) lgetters)
-            (map #(-> % .getName) lgetters))))
+;;(defn- generate-listener-method-map []
+;;  (let [lgetters (distinct (filter listener-list-getter?
+;;                                   (mapcat #(.getMethods %)
+;;                                           hoeck.pivot.components/components)))]
+;;    (zipmap (map #(-> % get-listener-list-getter-type .getName symbol) lgetters)
+;;            (map #(-> % .getName) lgetters))))
 
 ;; use reflection to add or remove listeners
 
@@ -309,8 +282,7 @@
     (if args (to-array args) clojure.lang.RT/EMPTY_ARRAY)))
 
 ;;; from rhickey: http://paste.lisp.org/display/67182
-(defn jfn [name]
-  #(apply jcall %1 name %&))
+(defn jfn [name] #(apply jcall %1 name %&))
 
 ;; map: listener-type -> listener-list getter method
 (def listener-type-method-map
@@ -412,24 +384,29 @@
       MapListener "getMapListeners"
       })
 
-(defn get-listener-list-getter-name
-  "Given a listener, return the getter for its listenerlist."
+(defn get-listener-list-getter-names
+  "Given a listener, return all possible getters for its listenerlist."
   [listener]
-  (let [listener-iface (->> (.getInterfaces (type listener))
-                            (filter #(re-matches #".*Listener$" (.getName %)))
-                            first)]
-    (or (get listener-type-method-map listener-iface)
-        (throwf "cannot find listener-list-getter for %s" (type listener)))))
+  (let [listener-ifaces (->> (.getInterfaces (type listener))
+                             (filter #(contains? listener-type-method-map %)))
+        l-getter-names (map listener-type-method-map listener-ifaces)]
+    (if (empty? l-getter-names)
+        (throwf "cannot find any listener-list-getters for %s" (type listener))
+        l-getter-names)))
 
-(defn get-listener-list [object listener]
-  (let [;;g (first (get-listener-list-getters object listener))
-        g (get-listener-list-getter-name listener)
-        _ (when (nil? g) (throwf "Don't know any listener-getter for listener %s on object %s." listener object))
-        listener-list (try (jcall object g)
-                           (catch Exception e
-                             (throw "Don't know how to get ListenerList %s for object %s of type %s"
-                                    g object (type object))))]
-    listener-list))
+(defn get-listener-list
+  "Given a listener and an object, return a listenerlist for a listener-type
+  listener implements.
+  Throw an Exception if no listenerlist matches."
+  [object listener]
+  (let [listener-list (->> (get-listener-list-getter-names listener)
+                           (map #(try (jcall object %) (catch Exception e nil)))
+                           (remove nil?)
+                           first)]
+    (if (nil? listener-list)
+      (throwf "Don't know how to get ListenerList for object %s of type %s"
+              object (type object))
+      listener-list)))
 
 (defn add-listener
   "Add listener(s) to objects, return nil."
@@ -447,14 +424,21 @@
      (remove-listener object listener)
      (apply remove-listener object more-listeners)))
 
-(defn remove-listeners
-  "Remove all clojure listeners from  the given (pivot) object."
-  [object]
-  (doseq [g (get-listener-list-getters object)]
-    (let [ll (jcall object g)]
-      (doseq [l (doall (seq ll))]
-        (when (re-matches #".*clojure.*" (.getName (type l)))
-          (.remove ll l))))))
+;; component class listener
+
+(defn clear-component-class-listeners []
+  (let [ls (Component/getComponentClassListeners)]
+    (doseq [l (seq ls)] (.remove ls l))))
+
+(defn add-component-class-listener
+  "Registers a ComponentClassListener which is fired when the focus changes and
+  calls f with the previously focused component. 
+  Use h.p.components/focused-component to determine the currently focused c."
+  [f]
+  (let [ls (Component/getComponentClassListeners)]
+    (.add ls (proxy [ComponentClassListener] []
+               ;;void focusedComponentChanged(Component previousFocusedComponent)
+               (focusedComponentChanged [c] (f c))))))
 
 ;; listener macros: (autogenerated)
 ;; for each pivot listener class, create a macro which creates such a listener
@@ -509,3 +493,27 @@
   [f]
   (proxy [Action] []
     (perform [] (f))))
+
+;; meta listeners
+
+(defn data-change-listener*
+  "Returns an object that implements several <component>-change-listeners
+  at once: text-input, list-button, calendar-button and Button.
+  It implements those types of listeners that fire when the components
+  displayed data changed."
+  [f]
+  (proxy [TextInputTextListener ;; void textChanged(TextInput textInput) 
+          ListButtonSelectionListener ;; void selectedIndexChanged(ListButton listButton, int previousSelectedIndex) 
+          CalendarButtonSelectionListener ;; void selectedDateChanged(CalendarButton calendarButton, CalendarDate previousSelectedDate) 
+          ButtonStateListener ;; void stateChanged(Button button, Button.State previousState)
+          ] []
+    (textChanged [& _] (f))
+    (selectedIndexChanged [& _] (f))
+    (selectedDateChanged [& _] (f))
+    (stateChanged [& _] (f))))
+
+(defmacro data-change-listener
+  "Macro wrapper around data-change-listener*."
+  [& body]
+  `(data-change-listener* (fn [] ~@body)))
+

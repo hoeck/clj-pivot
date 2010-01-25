@@ -4,8 +4,10 @@
 
 
 (def startup-fn (atom #()))
-
 (defn set-startup-fn [f] (swap! startup-fn (constantly f)))
+
+(def shutdown-fn (atom #())) ;; return true to optionally cancel the shutdown
+(defn set-shutdown-fn [f] (swap! shutdown-fn (constantly f)))
 
 (defn -startup [this display property-map]
   (@startup-fn display))
@@ -13,7 +15,7 @@
 (defn -shutdown [this optional?]
   ;;(when-let [w (:window @application-state)]
   ;;(.close w))
-  false)
+  (boolean (@shutdown-fn)))
 
 (defn -suspend [this])
 
