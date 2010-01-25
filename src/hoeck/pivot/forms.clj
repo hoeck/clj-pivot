@@ -9,7 +9,7 @@
         hoeck.pivot.datastructures)
   (:import (org.apache.pivot.wtk TextInput ListButton BoxPane StackPane
 				 CalendarButton)
-           (org.apache.pivot.util CalendarDate)
+           (org.apache.pivot.util CalendarDate Vote)
            (java.util Calendar Date)
            (java.text DateFormat DecimalFormat ParseException)
            (java.sql Timestamp)))
@@ -47,8 +47,7 @@
                   (str s))
           (catch ParseException pe default))))
 
-(defn bigdec-input
-  "A text input which expects a decimal number as input.
+(defn bigdec-input  "A text input which expects a decimal number as input.
   For .load and .store, returns BigDecimal instead of String.
   args: all args to text-input, except :self and:
     :format .. the format string to display the decimal, defaults to \"%.4f\"
@@ -246,4 +245,89 @@
                              (when-not (nil? m) (.load c m))))
                c
                mask-component)))
+
+
+;; auto-completing text-input
+
+(defn- listview-popup
+  "return a popup-window with the appropriate listeners set.
+  NEEDS a patched WindowSkin, because its mouseDown handler tries to move the window up
+  when it is closed after a list-view-selection event."
+  [ti on-select-f]
+  (let [lv (listview :user-name ::listview
+                     :selected-item-key ::selected-item
+                     :preferred-width (get-property ti :preferred-width))
+        ;; popup
+        popup (window :user-name ::listview-popup
+                      :auxilliary true
+                      :location (let [b (.getBounds ti)
+                                      p (.getLocation b)
+                                      p2 (.mapPointToAncestor
+                                          ti (.getWindow ti) 0 0) ;;(.x p) (.y p)
+                                      x (.x p2)
+                                      y (.y p2)]
+                                  [x (+ y (.height b) (.getPreferredHeight lv -1) -1)])
+                      (border lv))
+        ;; popup related listeners
+        cml (container-mouse-listener {cont :container [x y] :int}
+              :mouse-down (let [w (.getComponentAt cont x y)]
+                            (when-not (and (or (not (identical? popup w))
+                                               (not (identical? ti w)))
+                                           (.isOpen popup))
+                              ;; user clicked out of the bounds of this popup
+                              (.close popup))
+                            false)
+              :mouse-wheel true
+              false)
+        ;; close popup on textinput/listview changes
+        til (text-input-listener _ (when (.isOpen popup) (.close popup)))
+        lvl (list-view-selection-listener _ 
+              (do (on-select-f ti (::selected-item (get-component-tuple lv)))
+                  (when (.isOpen popup) (.close popup))))
+        ;; popup listener
+        wsl (window-state-listener {w :window :as args}
+              :window-opened (do (add-listener (.getDisplay w) cml)
+                                 (add-listener ti til)
+                                 (add-listener lv lvl))
+              :window-closed (do (remove-listener (:display args) cml)
+                                 (remove-listener ti til)
+                                 (remove-listener lv lvl)
+                                 (.requestFocus ti))
+              :preview-window-open Vote/APPROVE
+              :preview-window-close Vote/APPROVE)]
+    (add-listener popup wsl)
+    popup))
+
+(defn auto-text-input
+  "Returns a text-input wich opens a listview below if a character is typed
+  and the :on-complete-f function (called with the current text) returns a 
+  list of strings, which are displayed in the listview.
+  :on-select-f is called with textinput, item-string when the user picks an
+  item from the listview."
+  [& ti-args]
+  (let [argm (apply hash-map ti-args)
+        ti (->> (dissoc argm :on-complete-f :on-select-f)
+                (apply concat)
+                (apply text-input))
+        cf (:on-complete-f argm (constantly nil))
+        sf (:on-select-f argm (constantly nil))
+        pp (delay (listview-popup ti sf))
+        lv (delay (find-component (force pp) ::listview))]
+    (add-listener
+     ti (text-input-character-listener _
+          (let [t (get-property ti :text)
+                comp-list (cf t)]
+            (when-not (empty? comp-list);; a clojure list
+              ;; open a popup below ti and show a listview of possible inputs
+              (set-property (force lv) :data (make-list comp-list))
+              (.open (force pp) (.getWindow ti))))))
+    ti))
+
+(comment
+  ;; example
+  (auto-text-input
+   :user-name ::auto
+   :on-complete-f #(when (< 3 (count %)) ["a" "b" "c"])
+   :on-select-f (fn [ti v] (set-property ti :text v))))
+
 

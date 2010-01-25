@@ -19,7 +19,8 @@
            (org.apache.pivot.wtkx WTKXSerializer)
            (org.apache.pivot.collections Dictionary)
 	   (java.net URL)
-           (hoeck.pivot AWTExceptionHandler)))
+           ;;(hoeck.pivot AWTExceptionHandler)
+           ))
 
 (def appstate (atom {}))
 

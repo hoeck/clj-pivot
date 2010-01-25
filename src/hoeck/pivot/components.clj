@@ -68,10 +68,9 @@
                                  ;; enums, structs
                                  Orientation SortDirection Insets Point Bounds
 				 Dimensions VerticalAlignment HorizontalAlignment
-                                 ;; button-action
-                                 Action
-                                 ;; textdeco
-                                 TextDecoration)
+                                 TextDecoration Cursor
+                                 ;; misc
+                                 Action MenuHandler)
            (org.apache.pivot.wtk.content TableViewBooleanCellRenderer 
                                          TableViewCellRenderer
                                          TableViewDateCellRenderer
@@ -210,6 +209,8 @@
       :color ["color" get-color]
       :background-color ["backgroundColor" get-color]
       :border-color ["borderColor" get-color]
+      :disabled-background-color ["disabledBackgroundColor" get-color]
+      :disabled-border-color ["disabledBorderColor" get-color]
       :title-bar-color ["titleBarColor" get-color]
       :title-bar-background-color ["titleBarBackgroundColor" get-color]
       :title-bar-border-color ["titleBarBorderColor" get-color]})
@@ -340,6 +341,24 @@
       (vector (.x bv) (.y bv) (.width bv) (.height bv))
       (let [[x y w h] bv] (Bounds. x y w h)))))
 
+(defn get-cursor [k]
+  (condp = k 
+    :crosshair Cursor/CROSSHAIR
+    :default Cursor/DEFAULT
+    :hand Cursor/HAND
+    :move Cursor/MOVE
+    :resize_east Cursor/RESIZE_EAST
+    :resize_north Cursor/RESIZE_NORTH
+    :resize_north_east Cursor/RESIZE_NORTH_EAST
+    :resize_north_west Cursor/RESIZE_NORTH_WEST
+    :resize_south Cursor/RESIZE_SOUTH
+    :resize_south_east Cursor/RESIZE_SOUTH_EAST
+    :resize_south_west Cursor/RESIZE_SOUTH_WEST
+    :resize_west Cursor/RESIZE_WEST
+    :text Cursor/TEXT
+    :wait Cursor/WAIT
+    nil))
+
 ;; interfaces
 
 (defn make-validator
@@ -402,6 +421,20 @@
       (getWidth [] (.getWidth component))
       ;;void paint(Graphics2D graphics) Paints the visual.
       (paint [graphics] (.paint component graphics)))))
+
+(defn make-context-menu-handler
+  "Return a MenuHandler which calls the function f on configure-context-menu.
+  f must take 4 arguments: a component, a menu, and x y koords of the context click.
+  The result of calling f is used to determine wether more menuhandlers should be invoked.
+  If f is a MenuHandler, return it."
+  [f]
+  (cond (ifn? f)
+        (proxy [MenuHandler] []
+          (configureMenuBar [c mb])
+          (cleanupMenuBar [c mb])
+          (configureContextMenu [c m x y]
+                                (boolean (f c m x y))))
+        :else f))
 
 (defn make-table-view-cell-renderer
   "Return a TableView$CellRenderer, defaults (= arg nil) to
@@ -724,7 +757,12 @@
   (.get (.getUserData c) ":tags")
   "user-tags, reside in :user under :tags key, may be a set of keys or a single key.
   Returns always a set. Setting is always ADDs a key to the user-tags.
-  nil removes all keys.")
+  nil removes all keys."
+
+  :cursor (.setCursor c (get-cursor it)) (.getCursor c) "The cursor, a keyword, see get-cursor"
+
+  :menu-handler (.setMenuHandler c (make-context-menu-handler it)) (.getMenuHandler c)
+  "The components MenuHandler. If supplied a function, installs a context-menu-handler.")
 
 (defproperties Container [c]
   :components 
@@ -1284,8 +1322,9 @@
   :disbled-filter (.setDisabledNodeFilter t (make-filter it)) (.getDisabledNodeFilter t) "A filter predicate for nodes."
   :node-editor (.setNodeEditor t (get-tree-view-node-editor it)) (.getNodeEditor t) ":default or a editor function, see make-tree-view-node-editor"
   :node-renderer (.setNodeRenderer t (get-tree-view-node-renderer it)) (.getNodeRenderer t) ":default, a TreeView$NodeRenderer or a function implementing it"
-  :select-mode (.setSelectMode t (get-tree-view-select-mode it)) (.getSelectMode t) ":multi :single or :none"
-  :data (.setTreeData t it) (.getTreeData t) "tree data, a list of values, either plain strings or treeviews for the default renderer")
+  :select-mode (.setSelectMode t (get-tree-view-select-mode it)) (.getSelectMode t) ":multi :single or :none, defaults to :single"
+  :data (.setTreeData t it) (.getTreeData t) "tree data, a list of values, either plain strings or treeviews for the default renderer"
+  :selected-path (.setSelectedPath t it) (.getSelectedPath t) "The currently selected path, [TODO: clojureize]")
 
 (defcomponent tree-view [args]
   (with-component [t TreeView]))
@@ -1541,3 +1580,8 @@
   "return a relation of components"
   [root]
   (set (map component-tuple (tree-seq branch-property get-children root))))
+
+(defn pprint-styles
+  "Pretty-print the styles of a given component."
+  [component-fn]
+  (-> (component-fn) (get-property :styles) pprint))
