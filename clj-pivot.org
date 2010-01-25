@@ -1,0 +1,24 @@
+
+
+* short term
+** TODO update to pivot 1.4, refactor content, editors and renderes to use deftype
+** TODO remove awkward intertwined dependencies from components & listeners
+** TODO use leiningen & clojars for distribution
+** DONE macros around find-component, make more terse,
+   CLOSED: [2010-01-25 Mo 10:40]
+    user-keys property to component, for tagging components
+** DONE generalize some listeners (like `user-changed-something-listener' )
+   CLOSED: [2010-01-25 Mo 10:40]
+
+** TODO remove hoeck.pivot.relations package
+** TODO add neo4j support
+   displaying/modifying: graphs, trees and tabular/relational data
+
+
+* long term
+** TODO find out how to open more than one Frame
+** TODO implement basic reactive programming with limited scope for a few rows/forms/components
+  (see http://bitbucket.org/ksojat/neman/src/tip/neman/cells/)
+** TODO graph rendering with auto layout
+** TODO generate the components namespace solely from java-reflection???
+** TODO make the clojure-pivot-interface extendable (define property-maps for custom components)
