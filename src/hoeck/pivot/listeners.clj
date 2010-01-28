@@ -62,52 +62,53 @@
            (org.apache.pivot.util ListenerList)
 	   (java.lang.reflect ParameterizedType)))
 
-(def listeners [;; org.apache.pivot.wtk.*		
-		AccordionAttributeListener AccordionListener
-		AccordionSelectionListener ActionClassListener ActionListener
-		ActivityIndicatorListener AlertListener BorderListener
-		BoxPaneListener ButtonGroupListener
-		ButtonListener
-		ButtonPressListener ButtonStateListener CalendarButtonListener
-		CalendarButtonSelectionListener CalendarListener
-		CalendarSelectionListener CardPaneListener ClipboardContentListener
-		ComponentClassListener ComponentDataListener
-		ComponentDecoratorListener ComponentKeyListener ComponentListener
-		ComponentMouseButtonListener ComponentMouseListener
-		ComponentMouseWheelListener ComponentStateListener ContainerListener
-		ContainerMouseListener DialogCloseListener DialogStateListener
-		ExpanderListener FileBrowserListener FileBrowserSheetListener
-		FormAttributeListener FormListener FrameListener ImageViewListener
-		LabelListener ListButtonListener ListButtonSelectionListener
-		ListViewItemListener ListViewItemStateListener ListViewListener
-		ListViewSelectionListener Menu$ItemListener Menu$SectionListener
-		MenuBar$ItemListener MenuBarListener MenuButtonListener
-		MenuItemSelectionListener MenuListener MenuPopupListener
-		MenuPopupStateListener MeterListener MovieViewListener PromptListener
-		RollupListener RollupStateListener ScrollBarListener
-		ScrollBarValueListener ScrollPaneListener SeparatorListener
-		SheetCloseListener SheetStateListener SliderListener
-		SliderValueListener SpinnerItemListener SpinnerListener
-		SpinnerSelectionListener SplitPaneListener TabPaneAttributeListener
-		TabPaneListener TabPaneSelectionListener TablePaneAttributeListener
-		TablePaneListener TableViewColumnListener TableViewHeaderListener
-		TableViewHeaderPressListener TableViewListener TableViewRowListener
-		TableViewSelectionListener TextAreaCharacterListener TextAreaListener
-		TextAreaSelectionListener TextInputCharacterListener
-		TextInputListener TextInputSelectionListener TextInputTextListener
-		TooltipListener TreeViewBranchListener TreeViewListener
-		TreeViewNodeListener TreeViewNodeStateListener
-		TreeViewSelectionListener ViewportListener
-		WindowActionMappingListener WindowClassListener WindowListener
-		WindowStateListener
-                ;; org.apache.pivot.collections.*
-                FilteredListListener
-                ListListener
-                MapListener
-                MapListListener
-                QueueListener
-                SetListener
-                StackListener])
+;; delay-wrapped, required only at compiletime for macroexpansion
+(def listeners (delay [ ;; org.apache.pivot.wtk.*		
+                       AccordionAttributeListener AccordionListener
+                       AccordionSelectionListener ActionClassListener ActionListener
+                       ActivityIndicatorListener AlertListener BorderListener
+                       BoxPaneListener ButtonGroupListener
+                       ButtonListener
+                       ButtonPressListener ButtonStateListener CalendarButtonListener
+                       CalendarButtonSelectionListener CalendarListener
+                       CalendarSelectionListener CardPaneListener ClipboardContentListener
+                       ComponentClassListener ComponentDataListener
+                       ComponentDecoratorListener ComponentKeyListener ComponentListener
+                       ComponentMouseButtonListener ComponentMouseListener
+                       ComponentMouseWheelListener ComponentStateListener ContainerListener
+                       ContainerMouseListener DialogCloseListener DialogStateListener
+                       ExpanderListener FileBrowserListener FileBrowserSheetListener
+                       FormAttributeListener FormListener FrameListener ImageViewListener
+                       LabelListener ListButtonListener ListButtonSelectionListener
+                       ListViewItemListener ListViewItemStateListener ListViewListener
+                       ListViewSelectionListener Menu$ItemListener Menu$SectionListener
+                       MenuBar$ItemListener MenuBarListener MenuButtonListener
+                       MenuItemSelectionListener MenuListener MenuPopupListener
+                       MenuPopupStateListener MeterListener MovieViewListener PromptListener
+                       RollupListener RollupStateListener ScrollBarListener
+                       ScrollBarValueListener ScrollPaneListener SeparatorListener
+                       SheetCloseListener SheetStateListener SliderListener
+                       SliderValueListener SpinnerItemListener SpinnerListener
+                       SpinnerSelectionListener SplitPaneListener TabPaneAttributeListener
+                       TabPaneListener TabPaneSelectionListener TablePaneAttributeListener
+                       TablePaneListener TableViewColumnListener TableViewHeaderListener
+                       TableViewHeaderPressListener TableViewListener TableViewRowListener
+                       TableViewSelectionListener TextAreaCharacterListener TextAreaListener
+                       TextAreaSelectionListener TextInputCharacterListener
+                       TextInputListener TextInputSelectionListener TextInputTextListener
+                       TooltipListener TreeViewBranchListener TreeViewListener
+                       TreeViewNodeListener TreeViewNodeStateListener
+                       TreeViewSelectionListener ViewportListener
+                       WindowActionMappingListener WindowClassListener WindowListener
+                       WindowStateListener
+                       ;; org.apache.pivot.collections.*
+                       FilteredListListener
+                       ListListener
+                       MapListener
+                       MapListListener
+                       QueueListener
+                       SetListener
+                       StackListener]))
 
 ;; listeners: construction
 
@@ -115,14 +116,17 @@
   (let [c (if (isa? (type c) Class) c (type c))]
     (into {} (map vector (map #(.getName %) (.getMethods c)) (.getMethods c)))))
 
-;; map of listener-names -> map of method-name -> java.lang.reflect.Method
-(def listener-map (zipmap (map #(.getSimpleName %) listeners)
-                          (map get-methods listeners)))
+;; map of listener-names -> map of method-name ->
+;; java.lang.reflect.Method
+;; wrapped in a delay, only required at macroexpansion time
+(def listener-map (delay (zipmap (map #(.getSimpleName %) (force listeners))
+                                 (map get-methods (force listeners)))))
 
 ;; map of listener names (without the package prefix) to
 ;; full listener names
-(def listener-classname-map (zipmap (map #(.getSimpleName %) listeners)
-				    (map #(symbol (.getName %)) listeners)))
+(def listener-classname-map
+     (delay (zipmap (map #(.getSimpleName %) (force listeners))
+                    (map #(symbol (.getName %)) (force listeners)))))
 
 (defn lisp-to-camelcase [first-letter-uppercase? symbol-or-keyword]
   (when symbol-or-keyword
@@ -145,7 +149,7 @@
   ;; lookup using listener classname conventions: FooBarListener
   (let [cc (lisp-to-camelcase true k)
         classname (if (keyword? k) (str cc "Listener") cc)]
-    (if (listener-map classname)
+    (if ((force listener-map) classname)
       classname
       (throwf "unknown listener: %s (%s)" k classname))))
 
@@ -198,7 +202,7 @@
                                         (conj [x] v))
                                       v))
                          (assoc m k v)))
-        keys (concat [:this] (method-argument-keys method))
+        keys (method-argument-keys method)
         args (vec (take (count keys) (repeatedly gensym)))]
     [(assoc (reduce argmap-assoc {} (map vector keys args))
        :method
@@ -208,34 +212,36 @@
 (comment (get-listener-method-argmap (val (first (val (first listener-map)))))
          (get-listener-method-argmap ((listener-map "ComponentListener") "preferredSizeChanged")))
 
-(defmacro listener ;; creates a proxy dynamically; todo: switch to deftype?
-  "Return a Listener of the given listener class (a keyword or symbol, see
-  `listener-name').
-  Call the given function f with the arguments to the implemented listener-method
-  and a :method and :this (referring to the listener) as a hashmap.
-  If a listener method has two or more primitive args, they are wrapped in a 
-  vector and filed under a single :int, :float etc key in the hashmap.
-  Other arguments are put under their lispified classname in the argument hashmap.
-  Wrap all calls to f in a try-catch."
-  ([listener-key f]
-     (let [l (listener-name listener-key)
-	   l-method-map (listener-map l)
-           m (keys l-method-map) ;; the methods to implement
-           f_ (gensym)
-           args_ (gensym)]
-       `(let [p# (proxy [~(listener-classname-map l)] [])
-              ~f_ ~f]
-          (init-proxy p# ~(zipmap m
-                                  (map (fn [method-name]
-                                         (let [[argmap argvec] (get-listener-method-argmap (l-method-map method-name))]
-                                           `(fn ~argvec (~f_ ~argmap))))
-                                       m)))
-          p#))))
+(defmacro def-listener-type
+  "Generate an implementation of the given listener interface using deftype.
+  The name will be the lispified classname plus \"*\".
+  The type will have one field, a function called with hashmap of arguments:
+  :method, :this and lispified keywords of the method-argument types.
+  If one method has two or more arguments of the same type, they a packed into
+  a clojure vector, eg.: {:method :mouse-down :int [x y]}).
+  The type will implement clojure.lang.IPersistentMap."
+  [listener-cname]
+  (let [method-m ((force listener-map) listener-cname)
+        m (keys method-m) ;; the methods to implement
+        f (gensym)
+        this (gensym)]
+    `(deftype ~(symbol (str (lispify-camelcase listener-cname) "*")) [~f]
+       :as ~this
+       clojure.lang.IPersistentMap
+       ~((force listener-classname-map) listener-cname)
+       ~@(map (fn [method-name]
+                (let [[argmap argvec] (get-listener-method-argmap (method-m method-name))]
+                  `(~(symbol method-name) ~argvec (~f ~(assoc argmap :this this)))))
+              m))))
 
-(comment ;; listener examples
-  (pprint (macroexpand-1 '(listener :component X)))
-  (pprint (macroexpand-1 '(listener list-listener X)))
-  (listener :component #(println %)))
+(defmacro define-listener-types
+  "Define types for all pivot listeners."
+  []
+  `(do ~@(map (fn [n] `(def-listener-type ~n)) (keys (force listener-map)))))
+
+(define-listener-types)
+
+;; listeners: adding & removing
 
 (defn get-implemented-listener-type
   "return the implemented listener of listener-impl l."
@@ -243,9 +249,6 @@
   [l]
   (let [s (supers (type l))]
     (first (filter #(contains? listener-map (.getSimpleName %)) s))))
-
-
-;; listeners: adding & removing
 
 (defn listener-list-getter?
   "decide wether a given java.lang.reflect.Method is a ListenerList getter method,
@@ -455,7 +458,8 @@
    Body must be structured like a condp body:
    (condp = listener-metod-name ~@body)"
   [listener-name binding-expr & body]
-  `(listener ~listener-name
+  ;; instantiate the listener type
+  `(~(symbol (str listener-name "*"))
              (fn [argmap#]
                (let [~(cond (symbol? binding-expr) binding-expr
                             (vector? binding-expr) {:keys binding-expr}
@@ -465,14 +469,14 @@
                    ~@body)))))
 
 (defmacro def-listener-macro
-  "define a listener-macro for the given listener-name."
+  "define a listener-macro for the given listener-name"
   [listener-name]
   `(defmacro ~listener-name [~'binding-expr & ~'body]
      `(listener-macro ~'~listener-name ~~'binding-expr ~@~'body)))
 
 (defn all-listener-names
   "Given the listener-map, return seq of listener-names (symbols)."
-  ([] (all-listener-names listener-map))
+  ([] (all-listener-names (force listener-map)))
   ([listener-map]
      (->> listener-map keys (map lispify-camelcase) (map symbol))))
 
