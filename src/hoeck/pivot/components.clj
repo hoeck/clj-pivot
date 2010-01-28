@@ -469,11 +469,12 @@
   "return a TableView$RowEditor either a default one (arg is :row or :cell)
    or a custom one, (see hoeck.pivot.content)."
   [arg]
-  (cond (keyword? arg) (condp = arg
-                         :row (TableViewRowEditor.)
-                         :cell (TableViewCellEditor.))
-        (fn? arg) (hoeck.pivot.content/table-view-editor arg)
-        :else arg))
+  ;; (cond (keyword? arg) (condp = arg
+  ;;                        :row (TableViewRowEditor.)
+  ;;                        :cell (TableViewCellEditor.))
+  ;;       (fn? arg) (hoeck.pivot.content/table-view-editor arg)
+  ;;       :else arg)
+)
 
 ;; tree view helpers
 
@@ -567,11 +568,13 @@
 (defmacro defproperties
   "Define properties of an object and setter and getter expressions
      :key setter getter docstring
-  If there is no getter for a value, use nil, if there is no setter fo
+  If there is no getter for a value, use nil, if there is no setter for
   a value, use (throwf \"why?\") which throws an exception when someone tries
-  to use it."
+  to use it.
+  Multiple calls to defproperties with the same type argument will add the
+  given properties to the component."
   [type [varname] & properties]
-  `(alter-var-root (resolve 'property-definition-map) assoc ~type
+  `(alter-var-root #'property-definition-map update-in [~type] merge
 		   ~(into {} (map (fn [[key setter getter doc]]
 				    [key `{:setter (fn [~varname ~'it] ~setter)
 					   :getter (fn [~varname] ~getter)
@@ -1107,8 +1110,15 @@
 ;; tables
 
 (defproperties TableView [t]
-  :disabled-filter (.setDisabledRowFilter t (make-filter it)) (.getDisabledRowFilter t) "a predicate-function implementing a Filter"
-  :editor (.setRowEditor t (make-table-view-editor it)) (.getRowEditor t) "a funciton implenting editor, see make-table-view-editor"
+  :disabled-filter
+  (.setDisabledRowFilter t (make-filter it))
+  (.getDisabledRowFilter t)
+  "a predicate-function implementing a Filter"
+  ;; define editor in content package instead!
+  ;; :editor
+  ;; (.setRowEditor t (make-table-view-editor it))
+  ;; (.getRowEditor t)
+  ;; "a funciton implenting editor, see make-table-view-editor"
 
   :selected-index 
   (if (number? it) 
@@ -1152,8 +1162,8 @@
 
 (defcomponent table-view-column [args] ;; not a component, but an object with properties
   (let [t (or (:self args) (TableView$Column.))]
-    (set-properties t (merge {:cell-renderer (hoeck.pivot.content/label-cell-renderer)} ;; default renderer
-                             (dissoc args :self)))
+    ;;(set-properties t (merge {:cell-renderer (hoeck.pivot.content/label-cell-renderer)} ;; default renderer
+    ;;                         (dissoc args :self)))
     t))
 
 (set-documentation table-view (TableView.) :keys table-view-columns)
@@ -1583,3 +1593,5 @@
   "Pretty-print the styles of a given component."
   [component-fn]
   (-> (component-fn) (get-property :styles) pprint))
+
+
