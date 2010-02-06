@@ -403,7 +403,7 @@
               nil)
       ;; Renderer   
       ;;Dictionary<String,Object> getStyles() Returns the renderer's style dictionary.
-      (getStyles [] (.getStyles component)) 
+      (getStyles [] (.getStyles component))
       ;; ConstrainedVisual    
       ;;int getPreferredHeight(int width) Returns the visual's preferred height given the provided width constraint.
       (getPreferredHeight [width] (.getPreferredHeight component width))
@@ -679,6 +679,8 @@
      (vector (~method ~o))
      (~method ~o)))
 
+(defn remove-all [pivot-sequence]
+  (.remove pivot-sequence 0 (.getLength pivot-sequence)))
 ;; the definitions
 
 (defn set-component-width [c sizedef]
@@ -1109,6 +1111,41 @@
 
 ;; tables
 
+(defn table-view-column-map [t]
+  (zipmap (map #(-> % .getName keyword) (.getColumns t))
+          (.getColumns t)))
+
+(defn alter-table-view-columns
+  "modify the table-views columns according to column def:
+  A vector will set the columns to the contents of this vector.
+  A map of column-name to column will update existing columnt,
+  add new ones and remove those columns where the name maps to nil."
+  [t column-def]
+  (let [cd column-def]
+    (cond (map? cd)
+          (do
+            ;; update {:colname <tv-column>}
+            (let [cs (.getColumns t)
+                  cm (zipmap (map #(-> % .getName keyword) (.getColumns t))
+                             (iterate inc 0))]
+              (doseq [[n c] column-def]
+                (when-it (and c (get cm n))
+                  (.insert cs (set-property c :name n) it))))
+            ;; delete: {:colname nil}
+            (let [del-colnames (set (map key (remove val cd)))
+                  del-cols (filter #(del-colnames (when-it (.getName %) (keyword it)))
+                                   (vec (seq (.getColumns t))))]
+              (doseq [d del-cols]
+                (.remove (.getColumns t) d)))
+            ;; insert {:colname <tv-column>}
+            (let [cset (set (map #(-> % .getName keyword) (doall (.getColumns t))))]
+              (doseq [[n col] cd]
+                (when (and col (not (contains? cset n)))
+                  (.add (.getColumns t) (set-property col :name n))))))
+          (or (vector? cd) (seq? cd))
+          (do (remove-all (.getColumns t))
+              (doseq [c cd] (.add (.getColumns t) c))))))
+
 (defproperties TableView [t]
   :disabled-filter
   (.setDisabledRowFilter t (make-filter it))
@@ -1131,12 +1168,17 @@
   "the row select mode, one of: :multi :single :none"
   
   :data (.setTableData t it) (.getTableData t) "a List of Dictionaries of strings to any value or a list of javabeans"
-  :cols 
+  :cols
   (let [cs (.getColumns t)]
-    (when (< 0 (.getLength cs)) (.remove cs 0 (.getLength cs)))
+    (remove-all cs)
     (doseq [c it] (.add cs c)))
   (.getColumns t)
-  "The table-views columns. A list or vector of table-view-columns.")
+  "The table-views columns. A list or vector of table-view-columns."
+  
+  :columns
+  (alter-table-view-columns t it)
+  (table-view-column-map t)
+  "The table-views columns. A modifyable wit a list, vector or map of name->col, see ")
 
 (defcomponent table-view [args columns] ;; actually, components are TableView$Columns
   (with-component [t TableView]
@@ -1147,9 +1189,10 @@
 (defproperties TableView$Column [t]
   :filter (.setFilter t (make-filter it)) (.getFilter t) "a predicate"
 
-  :cell-renderer (.setCellRenderer t (make-table-view-cell-renderer it)) (.getCellRenderer t)
-  "one of :boolean :string :date :filesize :image :multi :number, 
-  or a custom one (function) see make-table-view-cell-renderer"
+  ;; todo: add property in content package
+  ;; :cell-renderer (.setCellRenderer t (make-table-view-cell-renderer it)) (.getCellRenderer t)
+  ;; "one of :boolean :string :date :filesize :image :multi :number, 
+  ;; or a custom one (function) see make-table-view-cell-renderer"
   
   :header-data (.setHeaderData t it) (.getHeaderData t) "the displayed column name (a string)"
   :name (.setName t (if (or (symbol? it) (keyword? it)) (name it) (str it))) (.getName t)
@@ -1162,8 +1205,7 @@
 
 (defcomponent table-view-column [args] ;; not a component, but an object with properties
   (let [t (or (:self args) (TableView$Column.))]
-    ;;(set-properties t (merge {:cell-renderer (hoeck.pivot.content/label-cell-renderer)} ;; default renderer
-    ;;                         (dissoc args :self)))
+    (set-properties t (dissoc args :self))
     t))
 
 (set-documentation table-view (TableView.) :keys table-view-columns)
