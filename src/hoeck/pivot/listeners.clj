@@ -40,6 +40,7 @@
 	    TabPaneListener TabPaneSelectionListener TablePaneAttributeListener
 	    TablePaneListener TableViewColumnListener TableViewHeaderListener
 	    TableViewHeaderPressListener TableViewListener TableViewRowListener
+            TableView$RowEditorListener
 	    TableViewSelectionListener TextAreaCharacterListener TextAreaListener
 	    TextAreaSelectionListener TextInputCharacterListener
 	    TextInputListener TextInputSelectionListener TextInputTextListener
@@ -381,7 +382,8 @@
       MenuListener "getMenuListeners",
       CalendarButtonListener "getCalendarButtonListeners",
       TextInputTextListener "getTextInputTextListeners",
-      FormListener "getFormListeners"
+      FormListener "getFormListeners",
+      TableView$RowEditorListener "getRowEditorListeners"
       ;; CollectionListeners
       ListListener "getListListeners"
       MapListener "getMapListeners"
