@@ -7,74 +7,63 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns hoeck.pivot
+  (:refer-clojure :exclude [->])
   (:use clojure.contrib.pprint
-        clojure.contrib.except
-        hoeck.pivot.content
-	hoeck.pivot.datastructures
-        hoeck.pivot.components
-        hoeck.pivot.listeners
-        hoeck.pivot.tools)
+        clojure.contrib.except)
   (:require [hoeck.pivot.Application :as app])
-  (:import (org.apache.pivot.wtk DesktopApplicationContext)
-           (org.apache.pivot.wtkx WTKXSerializer)
-           (org.apache.pivot.collections Dictionary)
-	   (java.net URL)
-           ;;(hoeck.pivot AWTExceptionHandler)
-           ))
+  (:import (org.apache.pivot.wtk DesktopApplicationContext
+                                 Window Component)
+	   (java.net URL)))
 
-(def appstate (atom {}))
+(def state (atom {})) ;; the root component
 
-(defn show-only
-  "show a single window using the current display"
-  [window]
-  (if-let [disp (:display @appstate)]
-    (do (.removeAll disp)
-	(.open window disp))
-    (throwf "no display available")))
-
-(defn start-pivot
+(defn init
   "return a promise that contains a display when pivot is ready."
   []
   (let [startup-p (promise)]
-    (app/set-startup-fn (fn [display] (deliver startup-p display)))
+    (swap! app/impl assoc :startup #(deliver startup-p %))
     (DesktopApplicationContext/main hoeck.pivot.Application, (into-array String ()))
     startup-p))
 
-(defn pivot-invoke [f]
+(defn setup
+  "open a pivot window"
+  [] (reset! state {:display @(init)}))
+
+(defn invoke [f]
   (DesktopApplicationContext/queueCallback f))
 
-(defmacro with-pivot
+(deftype exception-delegating-promise [result]
+  clojure.lang.IDeref
+  (deref []
+    (let [[r] (deref result)]
+      (if (instance? Throwable r)
+        (throw r)
+        r))))
+
+(defmacro pivot-do
   "Execute body in the pivot thread."
-  [& body] `(pivot-invoke (fn [] ~@body)))
+  [& body]
+  `(let [result# (promise)]
+     (invoke #(deliver result#
+                       (try (do ~@body)
+                            (catch Throwable t# [t#]))))
+     (exception-delegating-promise result#)))
 
-;;;
+(defmacro ->
+  "Same as clojure.core/->, but the first form is a pivot-display and the
+  threaded body is executed within the pivot EDT.
+  Returns a promise of its result."
+  [& body]
+  `(pivot-do (clojure.core/-> (:display @state)
+                         ~@body)))
 
-(comment
-
-  (start-pivot appstate)
-  (show-only (window (boxpane (boxpane (push-button :data "click")))))
-
-  (show-only (.readObject (WTKXSerializer.) (ClassLoader/getSystemResource "table_panes.wtkx")))
-  
-  (pivot-invoke #(component-inspector (@appstate :display)))
-
-  (-> (get-properties (@appstate :display)) :components first)
-  
-  (set-properties @selected-component {:preferred-width [20 200 *]})
-  (show-only (window 
-              :maximized true
-              (boxpane
-               :styles {:fill true}
-               (border
-                (table-pane :cols [[1] [1] [1] [10]]
-                            (table-pane-row (label :text "this")
-                                            (label :text "is")
-                                            (label :text "a")
-                                            (label :text "long row"))
-                            (table-pane-row (push-button :data "with")
-                                            (push-button :data "four")
-                                            (push-button :data "push")
-                                            (push-button :data "buttons")))))))
-  
-)
+(defn show
+  "show a single window using the current display"
+  [disp thing]
+  (.removeAll disp)
+  (.open (condp  instance? thing
+             Window thing
+             Component (Window. thing)
+             (throwf "thing must be a Window or a component"))
+         disp))
 

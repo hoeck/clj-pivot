@@ -1,32 +1,25 @@
 
 (ns hoeck.pivot.Application
-  (:gen-class :implements [org.apache.pivot.wtk.Application]))
+  (:gen-class :implements [org.apache.pivot.wtk.Application
+                           org.apache.pivot.wtk.Application$UncaughtExceptionHandler]))
 
+;; pivot startup requires a named class
 
-(def startup-fn (atom #()))
-(defn set-startup-fn [f] (swap! startup-fn (constantly f)))
+(def impl (atom {}))
 
-(def shutdown-fn (atom #())) ;; return true to optionally cancel the shutdown
-(defn set-shutdown-fn [f] (swap! shutdown-fn (constantly f)))
-
+;; Application
 (defn -startup [this display property-map]
-  (@startup-fn display))
+  ((:startup @impl) display))
 
 (defn -shutdown [this optional?]
-  ;;(when-let [w (:window @application-state)]
-  ;;(.close w))
-  (boolean (@shutdown-fn)))
+  ;; optional? - If true, the shutdown may be canceled by returning a value of true.
+  (boolean ((:shutdown @impl (constantly false)) optional?)))
 
-(defn -suspend [this])
+(defn -suspend [this] ((:suspend @impl #())))
+(defn -resume [this] ((:resume @impl #())))
 
-(defn -resume [this])
+;; Application$UncaughtExceptionHandler
+(defn -uncaughtExceptionThrown [e]
+  ((:uncaught-exception-thrown @impl #(println "Pivot: uncaught exception:" %)) e))
 
-(comment
-  (require 'hoeck.pivot.Application :reload)
-  (binding [*compile-path*
-	    "d:/clj/clj-pivot/classes"
-	    ;;"/home/timmy-turner/clj/clj-pivot/classes"
-	    ]
-    (compile (ns-name *ns*)))
-  )
 
