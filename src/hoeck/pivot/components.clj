@@ -1167,7 +1167,13 @@
   :select-mode (.setSelectMode t (get-table-view-select-mode it)) (.getSelectMode t)
   "the row select mode, one of: :multi :single :none"
   
-  :data (.setTableData t it) (.getTableData t) "a List of Dictionaries of strings to any value or a list of javabeans"
+  :data
+  (.setTableData t (if (instance? org.apache.pivot.collections.List it)
+                     it
+                     (make-list it)))
+  (.getTableData t)
+  "a List of renderable and editable objects, see hoeck.pivot.content."
+
   :cols
   (let [cs (.getColumns t)]
     (remove-all cs)

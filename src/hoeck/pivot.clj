@@ -63,7 +63,7 @@
   (.removeAll disp)
   (.open (condp  instance? thing
              Window thing
-             Component (Window. thing)
+             Component (doto (Window. thing) (.setMaximized true))
              (throwf "thing must be a Window or a component"))
          disp))
 

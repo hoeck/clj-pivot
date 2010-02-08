@@ -1,7 +1,6 @@
 
 (ns hoeck.pivot.content
   (:use clojure.contrib.except
-        hoeck.pivot
         hoeck.pivot.components
         hoeck.pivot.listeners)
   (:import (org.apache.pivot.wtk Keyboard Keyboard$KeyCode

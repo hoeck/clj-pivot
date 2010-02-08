@@ -2,7 +2,6 @@
 (ns hoeck.pivot.content.table-view
   (:use clojure.contrib.except
         clojure.contrib.pprint
-        hoeck.pivot
         hoeck.pivot.content ;; editor
         hoeck.pivot.components
         hoeck.pivot.listeners
@@ -94,13 +93,13 @@
       (if (= vote Vote/APPROVE)
         (let [editor (editor-ctor
                       (let [k (get-column-key tv col-index)
-                            tuple ])
-                      {:table-view tv
-                       :tuple (get-tuple tv row-index)
-                       :value (get-tuple tv row-index)
-                       :key 
-                       :row-idx row-index
-                       :col-idx col-index})]
+                            tup (get-tuple tv row-index)]
+                        {:table-view tv
+                         :tuple tup
+                         :value (get tup k)
+                         :key k
+                         :row-idx row-index
+                         :col-idx col-index}))]
           (reset! state (atom {:tv tv
                                :row-idx row-index
                                :col-idx col-index
@@ -147,7 +146,7 @@
   (TableViewEditor editor-ctor (atom {})))
 
 (defproperties TableView [tv]
-  :editor (.setRowEditor tv it) (.getRowEditor tv)
+  :editor (.setRowEditor tv (table-view-editor it)) (.getRowEditor tv)
   "The row editor, see hoeck.pivot.content for implementations.")
 
 
@@ -174,7 +173,8 @@
            row-selected?,
            row-highlighted?,
            row-disabled?]
-          (render r {:value value
+          (render r {:tuple value
+                     :value (get value (keyword column-name))
                      :row-idx row-idx
                      :col-idx col-idx
                      :table-view table-view
@@ -194,7 +194,9 @@
   ;;int getPreferredWidth(int height) Returns the visual's preferred width given the provided height constraint.
   (getPreferredWidth [height] (.getPreferredWidth (component r) height))
   ;;void setSize(int width, int height) Sets the visual's render size.
-  (setSize [width height] (.setSize (component r) width height))
+  (setSize [width height] (doto (component r)
+                            (.setSize width height)
+                            (.validate)))
   (getBaseline [width height] (.getBaseLine (component r) width height))
   ;; Visual
   ;;int getHeight() Returns the visual's height.
@@ -208,9 +210,8 @@
 (defn set-cell-renderer-styles
   "given the argument map of table-view-cell-renderer, set the columns
    font and color styles according to the styles defined in the table-view."
-  [args]
+  [c args]
   (let [tv (or (:table-view args) (throwf ":table-view missing in cell-renderer"))
-        cmp (or (:component args) (throwf ":component missing in cell-renderer"))
         tv-styles (.getStyles tv)
          color (.get tv-styles
                      (if (and (.isEnabled tv) (not (:row-disabled? args)))
@@ -220,13 +221,16 @@
                            "inactiveSelectionColor")
                          "color")
                        "disabledColor"))]
-    (doto (.getStyles cmp)
+    (doto (.getStyles c)
       (.put "color" color)
       (.put "font" (.get tv-styles "font")))))
 
 (defn table-view-cell-renderer [renderer]
-  (Table-View-Cell-Renderer (renderer)))
+  (TableViewCellRenderer (renderer)))
 
+(defproperties TableView$Column [t]
+  :renderer (.setCellRenderer t (table-view-cell-renderer it)) (.getCellRenderer t)
+  "The row editor, see hoeck.pivot.content for implementations.")
 
 ;; editor-dispatch, each col his own editor
 
@@ -263,14 +267,12 @@
                   (.selectAll)
                   (.requestFocus))))
 
-(deftypec text-renderer [ti]
-  ([] [(text-input)])
+(deftypec text-renderer [l]
+  ([] [(label)])
   HasComponent
-  (component [] ti)
+  (component [] (doto l (.validate)))
   Renderer
   (render [argm]
-          (set-cell-renderer-styles ti argm)))
-
-
-
-
+          (set-property l :text (str (:value argm)))
+          (set-cell-renderer-styles l argm)))
+          
