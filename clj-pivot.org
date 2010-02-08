@@ -1,8 +1,10 @@
 
 
 * short term
-** TODO update to pivot 1.4, refactor content, editors and renderes to use deftype
-** TODO remove awkward intertwined dependencies from components & listeners
+** DONE update to pivot 1.4, refactor content, editors and renderes to use deftype
+   CLOSED: [2010-02-08 Mo 14:37]
+** DONE remove awkward intertwined dependencies from components & listeners
+   CLOSED: [2010-02-08 Mo 14:37]
 ** TODO use leiningen & clojars for distribution
 ** DONE macros around find-component, make more terse,
    CLOSED: [2010-01-25 Mo 10:40]
@@ -10,12 +12,20 @@
 ** DONE generalize some listeners (like `user-changed-something-listener' )
    CLOSED: [2010-01-25 Mo 10:40]
 
-** TODO remove hoeck.pivot.relations package
+** DONE remove hoeck.pivot.relations package
+   CLOSED: [2010-02-08 Mo 14:41]
+** DONE add epl licence headers
+   CLOSED: [2010-02-09 Di 00:43]
+** TODO refactor component-inspector
+** DONE add examples
+   CLOSED: [2010-02-08 Mo 22:16]
+   partially done, need a *real* example app
+** DONE add README
+   CLOSED: [2010-02-09 Di 00:43]
+* long term
 ** TODO add neo4j support
    displaying/modifying: graphs, trees and tabular/relational data
-
-
-* long term
+   
 ** TODO find out how to open more than one Frame
 ** TODO implement basic reactive programming with limited scope for a few rows/forms/components
   (see http://bitbucket.org/ksojat/neman/src/tip/neman/cells/)

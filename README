@@ -1,0 +1,45 @@
+
+clj-pivot: a library to comfortably use Apache Pivot (http://pivot.apache.org) from Clojure
+
+example hello-world:
+
+(ns pivot.test
+  (:require [hoeck.pivot :as pivot])
+  (:use hoeck.pivot.components))
+
+(do (pivot/setup)
+    (pivot/-> (pivot/show (boxpane (push-button :data "Hello Pivot")))))
+
+see src/hoeck/pivot/examples.clj for more examples
+
+
+Features:
+
+ * declarative GUI definition
+
+(boxpane (label "press that button")
+         (text-input
+           :prompt "type here"
+           :user-name :ti
+           :text-key :user-input)
+         (push-button :data "press" :user-name :button))
+
+ * traversing the component tree
+
+(pivot/->
+  (find-component :button)
+  (set-property :action #(println :pressed)))
+
+ * listeners
+
+(pivot/->
+  (find-component :ti)
+  (add-listener (text-input-character-listener args
+                  :characters-inserted (println "inserted")
+                  :characters-removed nil)))
+
+ * data-binding
+
+(pivot/-> get-component-tuple) -> {:user-input "whatever"}
+(pivot/-> (set-component-tuple {:user-input "display-this"}))
+
