@@ -25,7 +25,7 @@
                                  StackPane Frame Viewport TablePane Panel FlowPane CardPane
                                  MovieView
 				 ;; buttons
-				 Button Button$Group PushButton RadioButton
+				 Button ButtonGroup PushButton RadioButton
 				 Checkbox LinkButton Button$State
                                  ;; other components
                                  Component 
