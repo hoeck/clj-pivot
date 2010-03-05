@@ -130,9 +130,13 @@
     :bold Font/BOLD))
 
 (defn get-font
-  "Return a java.awt.Font from a vector, e.g.: [\"Arial\", :plain, 10]"
-  [[name style size]]
-  (Font. name (get-font-style style) size))
+  "Return a java.awt.Font from a vector, e.g.: [\"Arial\", :plain, 10]
+  If arg is already a Font, return it instead."
+  [arg]
+  (cond (instance? Font arg) arg
+        (vector? arg)
+        (let [[name style size] arg]
+          (Font. name (get-font-style style) size))))
 
 (defn get-color [color-keyword-or-vector]
   (let [c color-keyword-or-vector]
