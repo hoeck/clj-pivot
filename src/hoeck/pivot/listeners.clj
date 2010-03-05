@@ -392,7 +392,7 @@
 (defn get-listener-list-getter-names
   "Given a listener, return all possible getters for its listenerlist."
   [listener]
-  (let [listener-ifaces (->> (.getInterfaces (type listener))
+  (let [listener-ifaces (->> (.getInterfaces (class listener))
                              (filter #(contains? listener-type-method-map %)))
         l-getter-names (map listener-type-method-map listener-ifaces)]
     (if (empty? l-getter-names)
