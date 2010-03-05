@@ -26,7 +26,7 @@
 (defn -resume [this] ((:resume @impl #())))
 
 ;; Application$UncaughtExceptionHandler
-(defn -uncaughtExceptionThrown [e]
+(defn -uncaughtExceptionThrown [this e]
   ((:uncaught-exception-thrown @impl #(println "Pivot: uncaught exception:" %)) e))
 
 
