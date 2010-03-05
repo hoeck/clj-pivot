@@ -35,18 +35,18 @@
 (deftype exception-delegating-promise [result]
   clojure.lang.IDeref
   (deref []
-    (let [[r] (deref result)]
+    (let [r (deref result)]
       (if (instance? Throwable r)
         (throw r)
-        r))))
+        (nth r 0)))))
 
 (defmacro pivot-do
   "Execute body in the pivot thread."
   [& body]
   `(let [result# (promise)]
      (invoke #(deliver result#
-                       (try (do ~@body)
-                            (catch Throwable t# [t#]))))
+                       (try [(do ~@body)]
+                            (catch Throwable t# t#))))
      (exception-delegating-promise result#)))
 
 (defmacro ->
