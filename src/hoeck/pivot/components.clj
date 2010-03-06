@@ -214,9 +214,22 @@
       :border-color ["borderColor" get-color]
       :disabled-background-color ["disabledBackgroundColor" get-color]
       :disabled-border-color ["disabledBorderColor" get-color]
+      :disabled-color ["disabledColor" get-color]
       :title-bar-color ["titleBarColor" get-color]
       :title-bar-background-color ["titleBarBackgroundColor" get-color]
-      :title-bar-border-color ["titleBarBorderColor" get-color]})
+      :title-bar-border-color ["titleBarBorderColor" get-color]
+      ;; table-view
+      :selection-color ["selectionColor" get-color]
+      :selection-background-color ["selectionBackgroundColor" get-color]
+      :column-selection-color ["columnSelectionColor" get-color]
+      :vertical-grid-color ["verticalGridColor" get-color]
+      :horizontal-grid-color ["horizontalGridColor" get-color]
+      :highlight-background-color ["highlightBackgroundColor" get-color]
+      :inactive-selection-color ["inactiveSelectionColor" get-color]
+      :inactive-selection-background-color ["inactiveSelectionBackgroundColor" get-color]
+      :show-highlight ["showHighlight" boolean]
+      :variable-row-height ["variableRowHeight" boolean]
+      :include-trailing-horizontal-grid-line ["includeTrailingHorizontalGridLine" boolean]})
 
 (defn set-styles
   "set the style of a component using style-setters to translate requests to pivot."
@@ -1605,6 +1618,8 @@
   Regexes are matched against the user-name.
   Functions are called for each component.
   Sets are intersected with :user-tags, and match on a nonempty result."
+  ;; todo: change set semantic to match all components which at least have this set of tags -> union
+  ;;       matching components with at least one tag is done with multiple set arguments
   [root-component expr]  
   (filter (cond (nil? expr) (constantly false)
                 (fn? expr) expr
