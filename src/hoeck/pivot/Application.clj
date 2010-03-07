@@ -26,7 +26,10 @@
 (defn -resume [this] ((:resume @impl #())))
 
 ;; Application$UncaughtExceptionHandler
+(def last-uncaught-exception (atom nil))
 (defn -uncaughtExceptionThrown [this e]
-  ((:uncaught-exception-thrown @impl #(println "Pivot: uncaught exception:" %)) e))
+  ((:uncaught-exception-thrown @impl
+                               #(do (reset! last-uncaught-exception %)
+                                    (println "Pivot: uncaught exception:" %))) e))
 
 
