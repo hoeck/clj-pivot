@@ -17,7 +17,6 @@
 
 (ns hoeck.pivot.components
   (:use clojure.contrib.pprint
-	clojure.contrib.prxml
 	clojure.contrib.duck-streams
         clojure.contrib.except
 
@@ -218,18 +217,22 @@
       :title-bar-color ["titleBarColor" get-color]
       :title-bar-background-color ["titleBarBackgroundColor" get-color]
       :title-bar-border-color ["titleBarBorderColor" get-color]
-      ;; table-view
+      ;; table-view-colors
       :selection-color ["selectionColor" get-color]
       :selection-background-color ["selectionBackgroundColor" get-color]
       :column-selection-color ["columnSelectionColor" get-color]
+      :column-selection-horizontal-grid-color ["columnSelectionHorizontalGridColor" get-color]
       :vertical-grid-color ["verticalGridColor" get-color]
       :horizontal-grid-color ["horizontalGridColor" get-color]
       :highlight-background-color ["highlightBackgroundColor" get-color]
       :inactive-selection-color ["inactiveSelectionColor" get-color]
       :inactive-selection-background-color ["inactiveSelectionBackgroundColor" get-color]
+      :alternate-row-color ["alternateRowColor" get-color]
+      ;; table-view
       :show-highlight ["showHighlight" boolean]
       :variable-row-height ["variableRowHeight" boolean]
-      :include-trailing-horizontal-grid-line ["includeTrailingHorizontalGridLine" boolean]})
+      :include-trailing-horizontal-grid-line ["includeTrailingHorizontalGridLine" boolean]
+      :include-trailing-vertical-grid-line ["includeTrailingVerticalGridLine" boolean]})
 
 (defn set-styles
   "set the style of a component using style-setters to translate requests to pivot."
