@@ -596,8 +596,8 @@
   [type [varname] & properties]
   `(alter-var-root #'property-definition-map update-in [~type] merge
 		   ~(into {} (map (fn [[key setter getter doc]]
-				    [key `{:setter (fn [~varname ~'it] ~setter)
-					   :getter (fn [~varname] ~getter)
+				    [key `{:setter (fn [~(with-meta varname {:tag (resolve type)}) ~'it] ~setter)
+					   :getter (fn [~(with-meta varname {:tag (resolve type)})] ~getter)
 					   :doc ~doc}])
 				  (partition 4 properties)))))
 
