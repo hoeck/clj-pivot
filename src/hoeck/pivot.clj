@@ -12,6 +12,8 @@
         clojure.contrib.except)
   (:require [hoeck.pivot.Application :as app])
   (:import (org.apache.pivot.wtk DesktopApplicationContext
+                                 BrowserApplicationContext
+                                 ApplicationContext
                                  Window Component)
 	   (java.net URL)))
 
@@ -19,8 +21,9 @@
 
 (defn init
   "return a promise that contains a display when pivot is ready."
-  []
-  (let [startup-p (promise)]
+  [& opts]
+  (let [{repl? :repl} (apply hash-map opts)
+        startup-p (promise)]
     (swap! app/impl assoc :startup #(deliver startup-p %))
     (DesktopApplicationContext/main hoeck.pivot.Application, (into-array String ()))
     startup-p))
@@ -30,11 +33,11 @@
   [] (reset! state {:display @(init)}))
 
 (defn invoke [f]
-  (DesktopApplicationContext/queueCallback f))
+  (ApplicationContext/queueCallback f))
 
-(deftype exception-delegating-promise [result]
+(deftype ExceptionDelegatingPromise [result]
   clojure.lang.IDeref
-  (deref []
+  (deref [this]
     (let [r (deref result)]
       (if (instance? Throwable r)
         (throw r)
@@ -47,7 +50,7 @@
      (invoke #(deliver result#
                        (try [(do ~@body)]
                             (catch Throwable t# t#))))
-     (exception-delegating-promise result#)))
+     (ExceptionDelegatingPromise. result#)))
 
 (defmacro ->
   "Same as clojure.core/->, but the first form is a pivot-display and the
@@ -55,7 +58,7 @@
   Returns a promise of its result."
   [& body]
   `(pivot-do (clojure.core/-> (:display @state)
-                         ~@body)))
+                              ~@body)))
 
 (defn show
   "show a single window using the current display"
