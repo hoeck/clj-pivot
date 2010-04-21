@@ -33,29 +33,31 @@
       (cond (keyword? k) (recur t (assoc opts k v))
             :else [opts s]))))
 
-(defn- find-ctor-def
-  "Search a deftype body for a ctor definition and return it."
-  [macro-body]
-  (loop [b macro-body
-         body nil]
-    (let [[h & t] b]
-      (cond (nil? b) [nil body]
-            (keyword? h) (recur (next t) (concat body (list h) (first t)))
-            (symbol? h) (recur t b)
-            (seq? h) (if (or (vector? (first h)) (seq? (first h)))
-                       [h (concat body t)]
-                       (recur t (concat body (list h))))
-            :else (throwf "no matching clause in find-ctor-code")))))
+;; (defn- find-ctor-def
+;;   "Search a deftype body for a ctor definition and return it."
+;;   [macro-body]
+;;   (loop [b macro-body
+;;          body nil]
+;;     (let [[h & t] b]
+;;       (cond (nil? b) [nil body]
+;;             (keyword? h) (recur (next t) (concat body (list h) (first t)))
+;;             (symbol? h) (recur t b)
+;;             (seq? h) (if (or (vector? (first h)) (seq? (first h)))
+;;                        [h (concat body t)]
+;;                        (recur t (concat body (list h))))
+;;             :else (throwf "no matching clause in find-ctor-code")))))
 
-(defmacro deftypec
-  "Creates a type with a custom constructor function. The constructor is
-  a method form without a name in the regular deftype body."
-  [name fields & body] ;; nonstandard ctor
-  (let [[ctor-def deftype-body] (find-ctor-def body)]
-    `(do (deftype ~name ~fields ~@deftype-body)
-         (let [original-ctor# ~name
-               nonstandard-ctor# (fn ~@ctor-def)]
-           (defn ~name [& args#]
-             (apply original-ctor# (apply nonstandard-ctor# args#)))))))
+;; (defmacro deftypec
+;;   "Creates a type with a custom constructor function. The constructor is
+;;   a method form without a name in the regular deftype body."
+;;   [name fields & body] ;; nonstandard ctor
+;;   (let [[ctor-def deftype-body] (find-ctor-def body)]
+;;     `(do (deftype ~name ~fields ~@deftype-body)
+;;          (let [original-ctor# ~name
+;;                nonstandard-ctor# (fn ~@ctor-def)]
+;;            (defn ~name [& args#]
+;;              (clojure.lang.Reflector/invokeConstructor
+;;               ~name
+;;               (into-array Object (apply nonstandard-ctor# args#))))))))
 
 

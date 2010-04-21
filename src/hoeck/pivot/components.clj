@@ -17,7 +17,7 @@
 
 (ns hoeck.pivot.components
   (:use clojure.contrib.pprint
-	clojure.contrib.duck-streams
+	clojure.contrib.io
         clojure.contrib.except
 
 	hoeck.pivot.datastructures

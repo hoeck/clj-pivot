@@ -92,49 +92,52 @@
   (let [c (.get (get-property tv :cols) col-idx)]
     (keyword (get-property c :name))))
 
-(deftype TableViewEditor [editor-ctor state] :as this
+(deftype CljTableViewEditor [editor-ctor state]
   TableView$RowEditor
-  (editRow [tv, row-index, col-index]
-    (let [ll (TableView$RowEditor$RowEditorListenerList.)
-          vote (.previewEditRow ll row-index col-index)]
-      (if (= vote Vote/APPROVE)
-        (let [editor (editor-ctor
-                      (let [k (get-column-key tv col-index)
-                            tup (get-tuple tv row-index)]
-                        {:table-view tv
-                         :tuple tup
-                         :value (get tup k)
-                         :key k
-                         :row-idx row-index
-                         :col-idx col-index}))]
-          (reset! state (atom {:tv tv
-                               :row-idx row-index
-                               :col-idx col-index
-                               :editor editor}))
-          (let [popup (basic-editor-setup this)]
-            (swap! state assoc :popup popup)
-            (.open popup (get-property tv :window))
-            (on-open editor)
-            (.rowEditing ll this tv row-index col-index)))
-        (.editRowVetoed ll this vote))))
-  (getRowEditorListeners [] (:row-editor-listeners @state))
+  (editRow [this, tv, row-index, col-index]
+           (let [ll (TableView$RowEditor$RowEditorListenerList.)
+                 vote (.previewEditRow ll row-index col-index)]
+             (if (= vote Vote/APPROVE)
+               (let [editor (editor-ctor
+                             (let [k (get-column-key tv col-index)
+                                   tup (get-tuple tv row-index)]
+                               {:table-view tv
+                                :tuple tup
+                                :value (get tup k)
+                                :key k
+                                :row-idx row-index
+                                :col-idx col-index}))]
+                 (reset! state (atom {:tv tv
+                                      :row-idx row-index
+                                      :col-idx col-index
+                                      :editor editor
+                                      :row-editor-listeners ll}))
+                 (let [popup (basic-editor-setup this)]
+                   (swap! state assoc :popup popup)
+                   (.open popup (get-property tv :window))
+                   (on-open editor)
+                   (.rowEditing ll this tv row-index col-index)))
+               (.editRowVetoed ll this vote))))
+  (getRowEditorListeners [this] (:row-editor-listeners @state))
   (cancelEdit
-   []
+   [this]
    (-> @state :popup .close)
    (-> @state
        :row-editor-listeners
        (.editCancelled this (:tv @state) (:row-idx @state) (:col-idx @state)))
    (reset! state {}))
-  (isEditing [] (boolean (:editing @state)))
+  (isEditing [this] (boolean (:editing @state)))
   (saveChanges
-   []
+   [this]
    (let [{:keys [tv row-idx col-idx
                  row-editor-listeners
                  editor]} @state
-         changes (make-dictionary
-                  {(get-column-key tv col-idx)
-                   (value editor)})
-         vote (.previewSaveChanges this tv row-idx col-idx changes)]
+                 changes (make-dictionary
+                          {(get-column-key tv col-idx)
+                           (value editor)})
+                 vote (.previewSaveChanges row-editor-listeners
+                                           this
+                                           tv row-idx col-idx changes)]
      (if (= vote Vote/APPROVE)
        (let [tup (merge (get-tuple tv row-idx) changes)
              data (get-property tv :data)]
@@ -147,10 +150,11 @@
                  (set-property tv :selected-index i)
                  (.scrollAreaToVisible tv (.getRowBounds tv i)))))
          (.changesSaved row-editor-listeners this tv row-idx col-idx))
-       (.saveChangesVetoed row-editor-listeners this vote)))))
+       (.saveChangesVetoed row-editor-listeners this vote)
+       ))))
 
 (defn table-view-editor [editor-ctor]
-  (TableViewEditor editor-ctor (atom {})))
+  (CljTableViewEditor. editor-ctor (atom {})))
 
 (defproperties TableView [tv]
   :editor (.setRowEditor tv (table-view-editor it)) (.getRowEditor tv)
@@ -172,7 +176,8 @@
   ;; TableView$CellRenderer
   ;;void render(Object value, TableView tableView, TableView.Column column, boolean rowSelected, boolean rowHighlighted, boolean rowDisabled)
   ;;void render(Object value, int rowIndex, int columnIndex, TableView tableView, String columnName, boolean rowSelected, boolean rowHighlighted, boolean rowDisabled) 
-  (render [value,
+  (render [this,
+           value,
            row-idx,
            col-idx,
            table-view,
@@ -192,27 +197,27 @@
           nil)
   ;; Renderer   
   ;;Dictionary<String,Object> getStyles() Returns the renderer's style dictionary.
-  (getStyles [] (.getStyles (component r)))
+  (getStyles [this] (.getStyles (component r)))
   ;; ConstrainedVisual    
   ;;int getPreferredHeight(int width) Returns the visual's preferred height given the provided width constraint.
-  (getPreferredHeight [width] (.getPreferredHeight (component r) width))
+  (getPreferredHeight [this width] (.getPreferredHeight (component r) width))
   ;;Dimensions getPreferredSize() Returns the visual's unconstrained preferred size.
-  (getPreferredSize [] (.getPreferredSize (component r)))
+  (getPreferredSize [this] (.getPreferredSize (component r)))
   ;;int getPreferredWidth(int height) Returns the visual's preferred width given the provided height constraint.
-  (getPreferredWidth [height] (.getPreferredWidth (component r) height))
+  (getPreferredWidth [this height] (.getPreferredWidth (component r) height))
   ;;void setSize(int width, int height) Sets the visual's render size.
-  (setSize [width height] (doto (component r)
+  (setSize [this width height] (doto (component r)
                             (.setSize width height)
                             (.validate)))
-  (getBaseline [width height] (.getBaseLine (component r) width height))
+  (getBaseline [this width height] (.getBaseLine (component r) width height))
   ;; Visual
   ;;int getHeight() Returns the visual's height.
-  (getHeight [] (.getHeight (component r)))
+  (getHeight [this] (.getHeight (component r)))
   ;;int getWidth() Returns the visual's width.
-  (getWidth [] (.getWidth (component r)))
+  (getWidth [this] (.getWidth (component r)))
   ;;void paint(Graphics2D graphics) Paints the visual.
-  (paint [graphics] (.paint (component r) graphics))
-  (getBaseline [] (.getBaseLine (component r))))
+  (paint [this graphics] (.paint (component r) graphics))
+  (getBaseline [this] (.getBaseLine (component r))))
 
 (defn set-cell-renderer-styles
   "given the argument map of table-view-cell-renderer, set the columns
@@ -233,7 +238,7 @@
       (.put "font" (.get tv-styles "font")))))
 
 (defn table-view-cell-renderer [renderer]
-  (TableViewCellRenderer (renderer)))
+  (TableViewCellRenderer. (renderer)))
 
 (defproperties TableView$Column [t]
   :renderer (.setCellRenderer t (table-view-cell-renderer it)) (.getCellRenderer t)
@@ -264,22 +269,25 @@
 
 ;;; editor & renderer implementations
 
-(deftypec text-input-editor [ti]
-  ([{v :value}] [(text-input :text v)]) ;; ctor
+(deftype TextInputEditor [ti]
   HasComponent
-  (component [] ti)
+  (component [this] ti)
   Editor
-  (value [] (get-property ti :text))
-  (on-open [] (doto ti
+  (value [this] (get-property ti :text))
+  (on-open [this] (doto ti
                   (.selectAll)
                   (.requestFocus))))
 
-(deftypec text-renderer [l]
-  ([] [(label)])
+(defn text-input-editor [{v :value}]
+  (TextInputEditor. (text-input :text v)))
+
+(deftype TextRenderer [l]
   HasComponent
-  (component [] (doto l (.validate)))
+  (component [this] (doto l (.validate)))
   Renderer
-  (render [argm]
+  (render [this argm]
           (set-property l :text (str (:value argm)))
           (set-cell-renderer-styles l argm)))
-          
+
+(defn text-renderer []
+  (TextRenderer. (label)))

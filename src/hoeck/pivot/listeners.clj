@@ -225,15 +225,22 @@
   (let [method-m ((force listener-map) listener-cname)
         m (keys method-m) ;; the methods to implement
         f (gensym)
-        this (gensym)]
-    `(deftype ~(symbol (str (lispify-camelcase listener-cname) "*")) [~f]
-       :as ~this
-       clojure.lang.IPersistentMap
-       ~((force listener-classname-map) listener-cname)
-       ~@(map (fn [method-name]
-                (let [[argmap argvec] (get-listener-method-argmap (method-m method-name))]
-                  `(~(symbol method-name) ~argvec (~f ~(assoc argmap :this this)))))
-              m))))
+        this (gensym)
+        dt-cname (symbol (str listener-cname "Impl"))]
+    `(do
+       ;; deftype implementing the listener iface
+       ;; eg: ContainerMouseListenerImpl
+       (deftype ~dt-cname [~f]
+           clojure.lang.IPersistentMap
+           ~((force listener-classname-map) listener-cname)
+           ~@(map (fn [method-name]
+                    (let [[argmap argvec] (get-listener-method-argmap (method-m method-name))]
+                      `(~(symbol method-name) ~(vec (concat [this] argvec)) (~f ~(assoc argmap :this this)))))
+                  m))
+       ;; ctor-fn
+       ;; eg: container-mouse-listener*
+       (defn ~(symbol (str (lispify-camelcase listener-cname) "*")) [~f]
+         (new ~dt-cname ~f)))))
 
 (defmacro define-listener-types
   "Define types for all pivot listeners."
@@ -455,7 +462,7 @@
   "Define a listener using a macro.
    Listener name should be a lispified name of the listener.
    binding-expr must be a left-side let form that is bound to the
-   listener-methods argument-map. If its a vector, use it to desturcture
+   listener-methods argument-map. If its a vector, use it to destructure
    the argmap with the given keys: {:keys -the-vector-}.
    Body must be structured like a condp body:
    (condp = listener-metod-name ~@body)"
