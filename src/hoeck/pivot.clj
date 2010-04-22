@@ -11,28 +11,47 @@
   (:use clojure.contrib.pprint
         clojure.contrib.except)
   (:require [hoeck.pivot.Application :as app])
-  (:import (org.apache.pivot.wtk DesktopApplicationContext
-                                 BrowserApplicationContext
+  (:import (org.apache.pivot.wtk Application
+                                 Application$UncaughtExceptionHandler
                                  ApplicationContext
+                                 DesktopApplicationContext
                                  Window Component)
 	   (java.net URL)))
 
-(def state (atom {})) ;; the root component
+(def clojure-application-fn (atom nil))
+(deftype ClojureApplication []
+  Application
+  (startup [this display property-map]
+           (@clojure-application-fn display))
+  (shutdown [this optional?]
+            ;; optional? - If true, the shutdown may be canceled by returning a value of true.
+            ;; return-value: true to cancel shutdown, false to continue.
+            false)
+  (suspend [this])
+  (resume [this])
+  Application$UncaughtExceptionHandler
+  (uncaughtExceptionThrown [this e]
+                           (println e)))
 
-(defn init
-  "return a promise that contains a display when pivot is ready."
-  [& opts]
-  (let [{repl? :repl} (apply hash-map opts)
-        startup-p (promise)]
-    (swap! app/impl assoc :startup #(deliver startup-p %))
-    (DesktopApplicationContext/main hoeck.pivot.Application, (into-array String ()))
-    startup-p))
+(defn start
+  "Given a class or a string, use that class to start pivot
+  (which must implement org.apache.pivot.Application)
+  using a DesktopApplicationContext. This works only for AOT-compiled classes.
+  Given a function, start pivot and invoke the function with the pivot display.
+  Use the latter approach for starting pivot during development."
+  [app-class-or-fn & args]
+  (cond (class? app-class-or-fn)
+          (DesktopApplicationContext/main app-class-or-fn, (into-array String (map str args)))
+        (string? app-class-or-fn)
+          (DesktopApplicationContext/main (into-array String (cons app-class-or-fn (map str args))))
+        (fn? app-class-or-fn)
+          (do (reset! clojure-application-fn app-class-or-fn)
+              (start ClojureApplication))))
 
-(defn setup
-  "open a pivot window"
-  [] (reset! state {:display @(init)}))
-
-(defn invoke [f]
+(defn invoke
+  "Queue and invoke the given function within the pivot thread.
+  Always returns nil"
+  [f]
   (ApplicationContext/queueCallback f))
 
 (deftype ExceptionDelegatingPromise [result]
@@ -51,14 +70,6 @@
                        (try [(do ~@body)]
                             (catch Throwable t# t#))))
      (ExceptionDelegatingPromise. result#)))
-
-(defmacro ->
-  "Same as clojure.core/->, but the first form is a pivot-display and the
-  threaded body is executed within the pivot EDT.
-  Returns a promise of its result."
-  [& body]
-  `(pivot-do (clojure.core/-> (:display @state)
-                              ~@body)))
 
 (defn show
   "show a single window using the current display"

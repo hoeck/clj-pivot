@@ -7,7 +7,7 @@
                    [org.clojars.hoeck/apache-pivot-wtk-terra "1.4"]]
     ;; compile everything except tools
     :namespaces (hoeck.pivot
-                 hoeck.pivot.Application
+                 hoeck.pivot.examples
                  hoeck.pivot.components
                  hoeck.pivot.listeners
                  hoeck.pivot.icons

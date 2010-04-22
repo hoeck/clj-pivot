@@ -10,7 +10,9 @@
   (:require [hoeck.pivot :as pivot])
   (:use hoeck.pivot.components
         hoeck.pivot.listeners
-        hoeck.pivot.content.table-view))
+        hoeck.pivot.content.table-view)
+  (:import (org.apache.pivot.wtk Application
+                                 Application$UncaughtExceptionHandler)))
 
 (defn example-shelf [left bottom component]
   (table-pane
@@ -62,12 +64,31 @@
            (push-button :data "3")
            (push-button :data "4")))
 
-(comment
-  (pivot/setup)
-  (pivot/-> (pivot/show (example-shelf "left" "table-view-example" (example-tv))))
-  (pivot/-> (pivot/show (example-shelf "left" "form-example" (example-form))))
-  (pivot/-> (pivot/show (example-shelf "left" "container-example"
-                                       (border
-                                        :styles {:padding [4 4 4 4]}
-                                        (button-box))))))
+(defn run-example [display]
+  ;;(pivot/show display (example-shelf "left" "table-view-example" (example-tv)))
+  ;;(pivot/show display (example-shelf "left" "form-example" (example-form)))
+  (pivot/show display (example-shelf "left" "container-example"
+                                     (border
+                                       :styles {:padding [4 4 4 4]}
+                                       (button-box)))))
+
+(deftype ExampleApp []
+  Application
+  (startup [this display property-map]
+           (require 'hoeck.pivot.examples)
+           (hoeck.pivot.examples/run-example display))
+  (shutdown [this optional?]
+            ;; optional? - If true, the shutdown may be canceled by returning a value of true.
+            ;; return-value: true to cancel shutdown, false to continue.
+            false)
+  (suspend [this])
+  (resume [this])
+  Application$UncaughtExceptionHandler
+  (uncaughtExceptionThrown [this e]
+                           (println e)))
+
+;; either invoke Example app from the commandline (after compiling with lein compile):
+;; java -cp classes/:lib/* org.apache.pivot.wtk.DesktopApplicationContext hoeck.pivot.examples.ExampleApp
+;; or use the start function
+;; (pivot/start run-example)
 
