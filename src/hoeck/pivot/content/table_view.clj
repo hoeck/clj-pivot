@@ -8,7 +8,6 @@
 
 (ns hoeck.pivot.content.table-view
   (:use clojure.contrib.except
-        clojure.contrib.pprint
         hoeck.pivot.content ;; editor
         hoeck.pivot.components
         hoeck.pivot.listeners

@@ -1,0 +1,24 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+<title>clj-pivot applet example</title>
+<script xmlns="" src="http://java.com/js/deployJava.js" type="text/javascript"></script>
+</head>
+<body>
+<h1>Example</h1>
+<p>with clojure!</p>
+<!-- archive="lib/apache-pivot-core-1.4.jar,lib/apache-pivot-wtk-1.4.jar,lib/apache-pivot-wtk-terra-1.4.jar,lib/clojure.jar,lib/clojure-contrib.jar,clj-pivot.jar" -->
+<applet height="300" 
+        width="480"
+        archive="clj-pivot-standalone.jar.pack.gz"
+        code="org.apache.pivot.wtk.BrowserApplicationContext$HostApplet">
+  <param value="false" name="codebase_lookup">
+  <param value="-Dsun.awt.noerasebackground=true -Dsun.awt.erasebackgroundonresize=true -Djnlp.packEnabled=true" name="java_arguments">
+  <param value="hoeck.pivot.examples.ExampleApp" name="application_class_name">
+</applet>
+<p>This version of the application was written entirely in Clojure</p>
+</body>
+</html>
+

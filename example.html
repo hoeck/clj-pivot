@@ -7,7 +7,7 @@
 </head>
 <body>
 <h1>Example</h1>
-<p>with clojure</p>
+<p>with clojure!</p>
 <script xmlns="" type="text/javascript">
   
   var attributes = {
@@ -17,24 +17,37 @@
   };
   
   var libraries = [];
-  libraries.push("lib/apache-pivot-core-1.4.jar");
-  libraries.push("lib/apache-pivot-wtk-1.4.jar");
-  libraries.push("lib/apache-pivot-wtk-terra-1.4.jar");
-  libraries.push("lib/apache-pivot-tutorials-1.4.jar");
-  libraries.push("lib/clojure-1.2.0-master-20100421.170114-41-slim.jar");
-  libraries.push("lib/clojure-contrib-1.2.0-20100421.170218-70.jar");
-  libraries.push("clj-pivot.jar");
-  
+  // single jars
+  //libraries.push("lib/apache-pivot-core-1.4.jar");
+  //libraries.push("lib/apache-pivot-wtk-1.4.jar");
+  //libraries.push("lib/apache-pivot-wtk-terra-1.4.jar");
+  //libraries.push("lib/clojure.jar");
+  //libraries.push("lib/clojure-contrib.jar");
+  //libraries.push("clj-pivot.jar");
+
+  // uberjar
+  libraries.push("clj-pivot-standalone.jar");
   attributes.archive = libraries.join(",");
   
   var parameters = {
     codebase_lookup:false,
     java_arguments:'-Dsun.awt.noerasebackground=true -Dsun.awt.erasebackgroundonresize=true',
-    application_class_name:'hoeck.pivot.examples.ExampleApp'
+    application_class_name:"hoeck.pivot.examples.ExampleApp"
   };
 
   deployJava.runApplet(attributes, parameters, "1.6");
 </script>
+
+<!-- <applet height="300" -->
+<!--         width="480" -->
+<!--         archive="lib/apache-pivot-core-1.4.jar,lib/apache-pivot-wtk-1.4.jar,lib/apache-pivot-wtk-terra-1.4.jar,lib/clojure.jar,lib/clojure-contrib.jar,clj-pivot.jar" -->
+<!--         code="org.apache.pivot.wtk.BrowserApplicationContext$HostApplet"> -->
+<!--   <param value="false" name="codebase_lookup"> -->
+<!--   <param value="-Dsun.awt.noerasebackground=true -Dsun.awt.erasebackgroundonresize=true" name="java_arguments"> -->
+<!--   <param value="hoeck.pivot.examples.ExampleApp" name="application_class_name"> -->
+<!--   <param value="false" name="classloader_cache"> -->
+<!--   <param value="true" name="separate_jvm"> -->
+<!-- </applet> -->
 
 <p>This version of the application was written entirely in Clojure</p>
 </body>

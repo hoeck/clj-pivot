@@ -7,8 +7,7 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns hoeck.pivot.listeners
-  (:use clojure.contrib.pprint
-        clojure.contrib.except)
+  (:use clojure.contrib.except)
   (:require hoeck.pivot.components)
   (:import (org.apache.pivot.wtk ;; Listeners
 	    AccordionAttributeListener AccordionListener

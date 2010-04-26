@@ -5,7 +5,8 @@
    CLOSED: [2010-02-08 Mo 14:37]
 ** DONE remove awkward intertwined dependencies from components & listeners
    CLOSED: [2010-02-08 Mo 14:37]
-** TODO use leiningen & clojars for distribution
+** DONE use leiningen & clojars for distribution
+   CLOSED: [2010-04-19 Mo 21:30]
 ** DONE macros around find-component, make more terse,
    CLOSED: [2010-01-25 Mo 10:40]
     user-keys property to component, for tagging components
@@ -32,3 +33,12 @@
 ** TODO graph rendering with auto layout
 ** TODO generate the components namespace solely from java-reflection???
 ** TODO make the clojure-pivot-interface extendable (define property-maps for custom components)
+
+* applets
+  keytool - zertifikate erstellen
+  policytool - policy-dateien erstellen
+** jarsigner - jars signieren oder überprüfen
+   jarsigner clj-pivot.jar selfsigned
+   selfsigned .. alias, eingegeben bei keytool
+** appletviewer
+   appletviewer -J-Djava.security.policy=all.jp example.html

@@ -8,7 +8,7 @@ example hello-world:
   (:use hoeck.pivot.components))
 
 (do (pivot/setup)
-    (pivot/-> (pivot/show (boxpane (push-button :data "Hello Pivot")))))
+    (pivot/start #(pivot/show % (boxpane (push-button :data "Hello Pivot")))))
 
 see src/hoeck/pivot/examples.clj for more examples
 

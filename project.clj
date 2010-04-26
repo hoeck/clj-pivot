@@ -8,6 +8,7 @@
     ;; compile everything except tools
     :namespaces (hoeck.pivot
                  hoeck.pivot.examples
+                 hoeck.pivot.examples.GenclassApp
                  hoeck.pivot.components
                  hoeck.pivot.listeners
                  hoeck.pivot.icons

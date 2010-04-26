@@ -7,9 +7,7 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns hoeck.pivot
-  (:refer-clojure :exclude [->])
-  (:use clojure.contrib.pprint
-        clojure.contrib.except)
+  (:use clojure.contrib.except)
   (:require [hoeck.pivot.Application :as app])
   (:import (org.apache.pivot.wtk Application
                                  Application$UncaughtExceptionHandler
@@ -76,8 +74,8 @@
   [disp thing]
   (.removeAll disp)
   (.open (condp  instance? thing
-             Window thing
-             Component (doto (Window. thing) (.setMaximized true))
-             (throwf "thing must be a Window or a component"))
+           Window thing
+           Component (doto (Window. thing) (.setMaximized true))
+           (throwf "thing must be a Window or a component"))
          disp))
 
