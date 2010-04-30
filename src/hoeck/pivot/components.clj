@@ -853,6 +853,12 @@
   (with-component [p Panel]
     (doseq [c components] (.add p c))))
 
+(defcomponent flowpane [args components]
+  (with-component [b FlowPane]
+    (doseq [c components] (.add b c))))
+
+(set-documentation flowpane (FlowPane.) :keys & components)
+
 (defproperties Accordion [a]
   :selected-index (.setSelectedIndex a it) (.getSelectedIndex a) "The currently selected accordion-pane.")
 
