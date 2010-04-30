@@ -54,7 +54,7 @@ http://github.com/downloads/hoeck/clj-pivot/clj-pivot.jar
 ;; if an exception occurs in the body, it will be thrown in the
 ;; calling thread, e.g. the REPL
 ;; now were testing the created frame
-(pivot/pivot-do (pivot/show @*display* (push-button :data "convert")))
+(pivot/pivot-do (pivot/show @*display* (cm/push-button :data "convert")))
 
 ;; pivot/show takes a display and a component and shows it on the display
 ;; push-button is a function to construct standard buttons
@@ -72,16 +72,16 @@ http://github.com/downloads/hoeck/clj-pivot/clj-pivot.jar
 (with-pivot-show
   (let [ ;; we need:
         ;; a textinput
-        celsius-input (text-input :text "23")
+        celsius-input (cm/text-input :text "23")
         ;; a button
-        convert-button (push-button :data "Convert")
+        convert-button (cm/push-button :data "Convert")
         ;; two labels
-        celsius-label (label "Celsius")
-        fahrenheit-label (label "73.4 Fahrenheit")]
+        celsius-label (cm/label "Celsius")
+        fahrenheit-label (cm/label "73.4 Fahrenheit")]
     ;; to be able to see them all at once on our display,
     ;; we wrap them in a container (a boxpane in this case)
     ;; and stack them vertically
-    (boxpane
+    (cm/boxpane
      :orientation :vert
      celsius-input
      convert-button
@@ -101,18 +101,18 @@ http://github.com/downloads/hoeck/clj-pivot/clj-pivot.jar
 ;; the push-button has an :action arg, which is a function without
 ;; arguments, called when someone clicks the button
 (with-pivot-show
-  (let [celsius-input (text-input :text "23")
-        celsius-label (label "Celsius")
-        fahrenheit-label (label "73.4 Fahrenheit")
-        convert-button (push-button :data "Convert"
-                                    :action #(set-property
-                                              ;; will set the :text -property
-                                              ;; of fahrenheit-label
-                                              fahrenheit-label :text
-                                              (convert (get-property
-                                                        celsius-input
-                                                        :text))))]
-    (boxpane
+  (let [celsius-input (cm/text-input :text "23")
+        celsius-label (cm/label "Celsius")
+        fahrenheit-label (cm/label "73.4 Fahrenheit")
+        convert-button (cm/push-button :data "Convert"
+                                       :action #(cm/set-property
+                                                 ;; will set the :text -property
+                                                 ;; of fahrenheit-label
+                                                 fahrenheit-label :text
+                                                 (convert (cm/get-property
+                                                           celsius-input
+                                                           :text))))]
+    (cm/boxpane
      :orientation :vert
      celsius-input
      convert-button
@@ -125,18 +125,18 @@ http://github.com/downloads/hoeck/clj-pivot/clj-pivot.jar
 ;; to out requirements
 
 (with-pivot-show
-  (let [celsius-input (text-input :text "23")
-        celsius-label (label "Celsius")
-        fahrenheit-label (label "73.4 Fahrenheit")
-        convert-button (push-button :data "Convert"
-                                    :action #(set-property
-                                              fahrenheit-label :text
-                                              (convert (-> celsius-input
-                                                           (get-property :text)))))]
+  (let [celsius-input (cm/text-input :text "23")
+        celsius-label (cm/label "Celsius")
+        fahrenheit-label (cm/label "73.4 Fahrenheit")
+        convert-button (ypush-button :data "Convert"
+                                     :action #(cm/set-property
+                                               fahrenheit-label :text
+                                               (convert (-> celsius-input
+                                                            (cm/get-property :text)))))]
     ;; we use a table-pane
     ;; this is the most versatile container to achieve various kinds
     ;; of tabular layouts
-    (table-pane
+    (cm/table-pane
      ;; we have 2 columns, each have a relative width of 1,
      ;; each col will get 50% of the available space
      :cols [[1] [1]]
@@ -147,8 +147,8 @@ http://github.com/downloads/hoeck/clj-pivot/clj-pivot.jar
               :horizontal-spacing 2
               :padding [2 2 2 2]}
      ;; 2 rows of components
-     (table-pane-row celsius-input celsius-label)
-     (table-pane-row convert-button fahrenheit-label))))
+     (cm/table-pane-row celsius-input celsius-label)
+     (cm/table-pane-row convert-button fahrenheit-label))))
 
 
 ;;  (4) cleaning up the code
@@ -160,30 +160,29 @@ http://github.com/downloads/hoeck/clj-pivot/clj-pivot.jar
 ;; this allows us to find them later (using (find-component display ::the-name))
 ;; without holding component-references in lets or global vars
 (with-pivot-show
-  (table-pane
+  (cm/table-pane
    :cols [[1] [1]]
    :styles {:vertical-spacing 2
             :horizontal-spacing 2
             :padding [2 2 2 2]}
-   (table-pane-row (text-input :text "23"
-                               :user-name ::celsius-input)
-                   (label "Celsius"))
-   (table-pane-row (push-button :data "Convert"
-                                :user-name ::convert-button)
-                   (label :user-name ::fahrenheit-label
-                          "73.4 Fahrenheit"))))
+   (cm/table-pane-row (cm/text-input :text "23"
+                                     :user-name ::celsius-input)
+                      (cm/label "Celsius"))
+   (cm/table-pane-row (cm/push-button :data "Convert"
+                                      :user-name ::convert-button)
+                      (cm/label :user-name ::fahrenheit-label
+                                "73.4 Fahrenheit"))))
 
 ;; separate from the layout, we will define the convert functionality
 (defn convert-action []
-  (let [ti (find-component @*display* ::celsius-input)
-        l (find-component @*display* ::fahrenheit-label)]
-    (set-property l :text (convert (get-property ti :text)))))
+  (let [ti (cm/find-component @*display* ::celsius-input)
+        l (cm/find-component @*display* ::fahrenheit-label)]
+    (cm/set-property l :text (convert (cm/get-property ti :text)))))
 
 ;; now we set the action
 (pivot/pivot-do (-> @*display*
-                    (find-component ::convert-button)
-                    (set-property :action convert-action)))
+                    (cm/find-component ::convert-button)
+                    (cm/set-property :action convert-action)))
 
 ;; enjoy converting temperatures!
 
- 
