@@ -467,7 +467,7 @@
    (condp = listener-metod-name ~@body)"
   [listener-name binding-expr & body]
   ;; instantiate the listener type
-  `(~(symbol (str listener-name "*"))
+  `(~(symbol "hoeck.pivot.listeners" (str listener-name "*"))
              (fn [argmap#]
                (let [~(cond (symbol? binding-expr) binding-expr
                             (vector? binding-expr) {:keys binding-expr}

@@ -91,11 +91,13 @@ http://github.com/downloads/hoeck/clj-pivot/clj-pivot.jar
 ;;  (3) first functionality
 ;; we first need a function to convert a temperature
 (defn convert [input-str]
-  (let [c (Double/parseDouble input-str)]
-    (str (+ 32 (* 1.8 c)) " Fahrenheit")))
+  (let [c (try (Double/parseDouble input-str) (catch NumberFormatException e nil))]
+    (str (if c (+ 32 (* 1.8 c)) "-") " Fahrenheit")))
 ;; and test it:
 (convert "23")
 ;; returns "73.4 Fahrenheit"
+(convert "foo")
+;; returns "- "Fahrenheit"
 
 ;; next, we wire up the convert function to the convert button:
 ;; the push-button has an :action arg, which is a function without
@@ -184,5 +186,47 @@ http://github.com/downloads/hoeck/clj-pivot/clj-pivot.jar
                     (cm/find-component ::convert-button)
                     (cm/set-property :action convert-action)))
 
+;;  (5) removing the button
+;; ideally, we want the celsius field to be updated whenever the user
+;; changes the temperature
+(with-pivot-show
+  (cm/table-pane
+   :cols [[1] [1]]
+   :styles {:vertical-spacing 2
+            :horizontal-spacing 2
+            :padding [2 2 2 2]}
+   (cm/table-pane-row (cm/text-input :prompt "Celsius"
+                                     :user-name ::celsius-input)
+                      (cm/label :user-name ::fahrenheit-label
+                                "73.4 Fahrenheit"))))
+
+;; now we add a change-listener to the text-input, to do so, we need
+;; the hoeck.pivot.listeners namespace
+(require '[hoeck.pivot.listeners :as l])
+
+;; to find out which listener we will need, we're going to look
+;; into the pivot apidocs, specifially the page for a TextInput:
+;; http://pivot.apache.org/1.4/docs/api/org/apache/pivot/wtk/TextInput.html
+;; there, we take a look at the TextInputTextListener:
+;; http://pivot.apache.org/1.4/docs/api/org/apache/pivot/wtk/TextInputTextListener.html
+;; and spot the textChanged method, now we implement it using clj-pivot:
+
+(let [listener (l/text-input-text-listener
+                ;; here we could specify the arguments we need from the
+                ;; text-input-text-listener
+                ;; we need no args, so we put a underscore there,
+                ;; which is idiomatic clojure naming for "dont care"
+                _
+                ;; this is the body of our listener
+                ;; the text-input-text-listener has only one method,
+                ;; so we specify a single form here which will be executed
+                ;; on all invocations of this listener
+                (convert-action))]
+  ;; add the listener to the desired component:
+  (l/add-listener (cm/find-component @*display* ::celsius-input)
+                  listener))
+
 ;; enjoy converting temperatures!
+
+
 
