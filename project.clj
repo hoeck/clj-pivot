@@ -1,5 +1,5 @@
 
-(defproject clj-pivot "0.1.1"
+(defproject clj-pivot "0.1.2"
     :description "A Clojure library for Apache Pivot"
     :url "http://github.com/hoeck/clj-pivot"
     :dependencies [[org.clojure/clojure "1.2.0-master-SNAPSHOT"]
