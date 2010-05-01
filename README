@@ -1,44 +1,54 @@
 
 clj-pivot: a library to comfortably use Apache Pivot (http://pivot.apache.org) from Clojure
 
-example hello-world:
+Example
 
 (ns pivot.test
-  (:require [hoeck.pivot :as pivot])
-  (:use hoeck.pivot.components))
+  (:require [hoeck.pivot :as pivot]
+            [hoeck.pivot.components :as cm]))
 
-(pivot/start #(pivot/show % (boxpane (push-button :data "Hello Pivot"))))
+(pivot/start #(pivot/show % (cm/boxpane (cm/push-button :data "Hello Pivot"))))
 
-see src/hoeck/pivot/examples.clj for more examples
+
+Getting Started
+
+see howto.clj for a small introduction to clj-pivot
 
 
 Features:
+ 
+ * apache pivot
+   - rich set of widgets, see:
+       http://pivot.apache.org/demos/kitchen-sink.html
+     and
+       http://pivot.apache.org/demos/component-explorer.html
+   - clean, modern and consistent api
+   - dynamic
+   - deployable as Desktop Application or Applet
 
- * declarative GUI definition
+ * use the pivot api from clojure
+   - less java calls
+   - convenient constructor functions
+   - easily to compose custom widgets
+   - function level documentation
 
-(boxpane (label "press that button")
-         (text-input
-           :prompt "type here"
-           :user-name :ti
-           :text-key :user-input)
-         (push-button :data "press" :user-name :button))
+ * declarative GUI definition using s-expressions
 
- * traversing the component tree
+ * traversable component tree
 
-(pivot/->
-  (find-component :button)
-  (set-property :action #(println :pressed)))
+ * data-binding using clojure hashmaps
 
- * listeners
 
-(pivot/->
-  (find-component :ti)
-  (add-listener (text-input-character-listener args
-                  :characters-inserted (println "inserted")
-                  :characters-removed nil)))
+Limitations
 
- * data-binding
+ * limited to one host window
+ * closing the that window will quit the clojure-repl too
+ * requires the (unreleased) latest clojure (1.2-snapshot)
 
-(pivot/-> get-component-tuple) -> {:user-input "whatever"}
-(pivot/-> (set-component-tuple {:user-input "display-this"}))
+
+TODO:
+
+ * integrate drag and drop
+ * add more custom components
+ * more clojure-backed renderers/editors (for tree-views, listboxes ..)
 
