@@ -23,6 +23,7 @@
    partially done, need a *real* example app
 ** DONE add README
    CLOSED: [2010-02-09 Di 00:43]
+** TODO add jnlp support
 * long term
 ** TODO add neo4j support
    displaying/modifying: graphs, trees and tabular/relational data
@@ -42,3 +43,9 @@
    selfsigned .. alias, eingegeben bei keytool
 ** appletviewer
    appletviewer -J-Djava.security.policy=all.jp example.html
+** pack200
+   beste kompr. + strip debug-info
+   pack200 -E9 -G clj-pivot.jar.pack.gz clj-pivot.jar
+   anschliessend im <applet>-tag ganz normal auf clj-pivot.jar verweisen
+   und zusätzlich das -Djnlp.packEnabled=true jvm-arg-flag setzen
+
