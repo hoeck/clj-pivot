@@ -8,9 +8,7 @@
 
 ;; interfacing clojure with pivot datastructures through proxying and generation
 (ns hoeck.pivot.datastructures
-  (:use clojure.contrib.except)
   (:import (org.apache.pivot.collections List Map Dictionary HashMap  LinkedList)))
-
 
 ;; tools
 
@@ -94,9 +92,9 @@
     ;;boolean isEmpty() Tests the emptiness of the dictionary.
     (isEmpty [] (empty? m))
     ;;V put(K key, V value) Sets the value of the given key, creating a new entry or replacing the existing value.
-    (put [k v] (throwf "Immutable Dictionary, put not allowed"))
+    (put [k v] (throw (Exception. "Immutable Dictionary, put not allowed")))
     ;;V remove(K key) Removes a key/value pair from the map.
-    (remove [k] (throwf "Immutable Dictionary, remove not allowed"))))
+    (remove [k] (throw (Exception. "Immutable Dictionary, remove not allowed")))))
 
 (defn mutable-dictionary
   "Same as `ìmmutable-dictionary' but implement the mutable parts using an atom."
@@ -137,7 +135,7 @@
       (getLength [] (count @v))
       (getListListeners [] nil)  ;;ListenerList<ListListener<T>> getListListeners()
       (insert [item index]
-	      (dosync (when @comp (throwf "Comparator set, cannot insert new items, use add instead."))
+	      (dosync (when @comp (throw (Exception. "Comparator set, cannot insert new items, use add instead.")))
 		      (ref-set v (vec (concat (subvec @v 0 index)
 					      [item]
 					      (subvec @v index (count @v))))))

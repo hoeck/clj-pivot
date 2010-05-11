@@ -7,8 +7,7 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns hoeck.pivot.content
-  (:use clojure.contrib.except
-        hoeck.pivot.components
+  (:use hoeck.pivot.components
         hoeck.pivot.listeners)
   (:import (org.apache.pivot.wtk Keyboard Keyboard$KeyCode
                                  TableView$CellRenderer TableView$RowEditor)
@@ -45,7 +44,7 @@
 ;;             (seq? h) (if (or (vector? (first h)) (seq? (first h)))
 ;;                        [h (concat body t)]
 ;;                        (recur t (concat body (list h))))
-;;             :else (throwf "no matching clause in find-ctor-code")))))
+;;             :else (throw "no matching clause in find-ctor-code")))))
 
 ;; (defmacro deftypec
 ;;   "Creates a type with a custom constructor function. The constructor is

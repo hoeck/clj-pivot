@@ -16,11 +16,7 @@
 ;;   property to "true"
 
 (ns hoeck.pivot.components
-  (:use clojure.contrib.pprint
-	clojure.contrib.io
-        clojure.contrib.except
-
-	hoeck.pivot.datastructures
+  (:use hoeck.pivot.datastructures
         hoeck.pivot.icons)
   (:require [hoeck.pivot.Application :as app]
             [clojure.set :as set]
@@ -94,6 +90,9 @@
 	   (java.awt Color Font)
 	   (java.net URL)))
 
+(defn throwf [fmt & args]
+  (throw (Exception. (apply format fmt args))))
+
 ;; enum/classes mapping
 
 (def components ;; a list of component classes
@@ -147,10 +146,10 @@
                   (and r g b) (Color. r g b)
                   (and r g) (Color. r g)
                   (and r) (Color. r)
-                  :else (throw-arg "need at least one non nil argument to Color ctor")))
+                  :else (throwf "need at least one non nil argument to Color ctor")))
 	  (integer? c) (Color. c)
           (instance? Color c) c
-          :else (throw-arg "to get-color: %s" c))))
+          :else (throwf "to get-color: %s" c))))
 
 (defn get-selection-change-effect
   "Keyword -> CardPaneSkin$SelectionChangeEffect."
@@ -649,11 +648,15 @@
   "return a docstring made up of the objects properties of the form: 
   :prop-key   .. documentation."
   [o]
-  (cl-format nil "~:{~22<~a~; ..~> ~a~%~}"
-             (let [p (get-all-property-defs o)]
-               (map vector
-                    (keys p)
-                    (map #(-> % val :doc) p)))))
+  (;;cl-format nil "~:{~22<~a~; ..~> ~a~%~}"
+   ->>
+   (let [p (get-all-property-defs o)]
+     (map vector
+          (keys p)
+          (map #(-> % val :doc) p)))
+   (map #(print-str (first %) " - " (second %)))
+   (interpose \newline)
+   (apply print-str)))
 
 (defmacro set-documentation
   "generate extended docstrings from property docs, generate no documentation at all when
@@ -1668,6 +1671,7 @@
 (defn pprint-styles
   "Pretty-print the styles of a given component."
   [component-fn]
-  (-> (component-fn) (get-property :styles) pprint))
+  (doseq [s (-> (component-fn) (get-property :styles))]
+    (println s)))
 
 

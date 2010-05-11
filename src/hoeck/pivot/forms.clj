@@ -9,8 +9,7 @@
 ;; provide rich components for entering (typed) form data
 
 (ns hoeck.pivot.forms
-  (:use clojure.contrib.except
-        hoeck.pivot.components
+  (:use hoeck.pivot.components
         hoeck.pivot.listeners
         hoeck.pivot.datastructures)
   (:import (org.apache.pivot.wtk TextInput ListButton BoxPane StackPane
@@ -68,7 +67,7 @@
                                                                     (cond (instance? BigDecimal v) v
                                                                           (nil? v) (BigDecimal. 0)
                                                                           (number? v) (BigDecimal. v)
-                                                                          :else (throw-arg "expect some kind of number to bigdec-input, not %s" v)))))))
+                                                                          :else (throw (IllegalArgumentException. (str "expect some kind of number to bigdec-input, not" v)))))))))
                                 (store [m] (.put m (get-property this :text-key) (read-bigdec (get-property this :text)))))
                         :validator bigdec-validator
                         :styles (merge (:styles args) {:invalid-background-color invalid-background-color})}

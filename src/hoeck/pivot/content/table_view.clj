@@ -7,9 +7,7 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns hoeck.pivot.content.table-view
-  (:use clojure.contrib.except
-        hoeck.pivot.content ;; editor
-        hoeck.pivot.components
+  (:use hoeck.pivot.content ;; editor
         hoeck.pivot.listeners
         hoeck.pivot.datastructures)
   (:import (org.apache.pivot.wtk Keyboard Keyboard$KeyCode
@@ -222,16 +220,16 @@
   "given the argument map of table-view-cell-renderer, set the columns
    font and color styles according to the styles defined in the table-view."
   [c args]
-  (let [tv (or (:table-view args) (throwf ":table-view missing in cell-renderer"))
+  (let [tv (or (:table-view args) (throw (Exception. ":table-view missing in cell-renderer")))
         tv-styles (.getStyles tv)
-         color (.get tv-styles
-                     (if (and (.isEnabled tv) (not (:row-disabled? args)))
-                       (if (:row-selected? args)
-                         (if (.isFocused tv)
-                           "selectionColor"
-                           "inactiveSelectionColor")
-                         "color")
-                       "disabledColor"))]
+        color (.get tv-styles
+                    (if (and (.isEnabled tv) (not (:row-disabled? args)))
+                      (if (:row-selected? args)
+                        (if (.isFocused tv)
+                          "selectionColor"
+                          "inactiveSelectionColor")
+                        "color")
+                      "disabledColor"))]
     (doto (.getStyles c)
       (.put "color" color)
       (.put "font" (.get tv-styles "font")))))

@@ -7,7 +7,6 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns hoeck.pivot.listeners
-  (:use clojure.contrib.except)
   (:require hoeck.pivot.components)
   (:import (org.apache.pivot.wtk ;; Listeners
 	    AccordionAttributeListener AccordionListener
@@ -61,6 +60,9 @@
                                          StackListener)
            (org.apache.pivot.util ListenerList)
 	   (java.lang.reflect ParameterizedType)))
+
+(defn throwf [fmt & args]
+  (throw (Exception. (apply format fmt args))))
 
 ;; delay-wrapped, required only at compiletime for macroexpansion
 (def listeners (delay [ ;; org.apache.pivot.wtk.*		
