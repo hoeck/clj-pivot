@@ -130,7 +130,7 @@ http://github.com/downloads/hoeck/clj-pivot/clj-pivot.jar
   (let [celsius-input (cm/text-input :text "23")
         celsius-label (cm/label "Celsius")
         fahrenheit-label (cm/label "73.4 Fahrenheit")
-        convert-button (ypush-button :data "Convert"
+        convert-button (cm/push-button :data "Convert"
                                      :action #(cm/set-property
                                                fahrenheit-label :text
                                                (convert (-> celsius-input
