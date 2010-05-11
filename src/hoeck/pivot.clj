@@ -7,7 +7,6 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns hoeck.pivot
-  (:use clojure.contrib.except)
   (:require [hoeck.pivot.Application :as app])
   (:import (org.apache.pivot.wtk Application
                                  Application$UncaughtExceptionHandler

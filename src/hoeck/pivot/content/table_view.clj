@@ -8,6 +8,7 @@
 
 (ns hoeck.pivot.content.table-view
   (:use hoeck.pivot.content ;; editor
+        hoeck.pivot.components
         hoeck.pivot.listeners
         hoeck.pivot.datastructures)
   (:import (org.apache.pivot.wtk Keyboard Keyboard$KeyCode

@@ -7,8 +7,7 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns hoeck.pivot.tools
-  (:use clojure.contrib.except
-	hoeck.pivot.datastructures
+  (:use hoeck.pivot.datastructures
         hoeck.pivot.components
         hoeck.pivot.listeners)
   (:require [hoeck.pivot.Application :as app])

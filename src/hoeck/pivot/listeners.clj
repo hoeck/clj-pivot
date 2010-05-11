@@ -61,7 +61,7 @@
            (org.apache.pivot.util ListenerList)
 	   (java.lang.reflect ParameterizedType)))
 
-(defn throwf [fmt & args]
+(defn listener-throwf [fmt & args]
   (throw (Exception. (apply format fmt args))))
 
 ;; delay-wrapped, required only at compiletime for macroexpansion
@@ -153,7 +153,7 @@
         classname (if (keyword? k) (str cc "Listener") cc)]
     (if ((force listener-map) classname)
       classname
-      (throwf "unknown listener: %s (%s)" k classname))))
+      (listener-throwf "unknown listener: %s (%s)" k classname))))
 
 (defn listener-method-name
   "Return a listener method given the listeners classname and a keyword.
@@ -170,7 +170,7 @@
             name (lisp-to-camelcase false method-key)]
         (cond (methods name-ch) name-ch
               (methods name) name
-              :else (throwf "unknown listener method: %s (%s, %s)" method-key name-ch name))))))
+              :else (listener-throwf "unknown listener method: %s (%s, %s)" method-key name-ch name))))))
 
 (defn lispify-camelcase [j]
   (let [m (re-matcher #"[A-Z][a-z]*" (str (.toUpperCase (.substring j 0 1)) (.substring j 1)))]
@@ -274,7 +274,7 @@
         lname (str "org.apache.pivot.wtk." (.substring n 3 (dec (count n))))]
     (try (Class/forName lname)
          (catch ClassNotFoundException e
-           (throwf "listener getter type %s not found in %s" lname n)))))
+           (listener-throwf "listener getter type %s not found in %s" lname n)))))
 
 
 ;; Listener-type to ListenerList getter method map generation
@@ -404,7 +404,7 @@
                              (filter #(contains? listener-type-method-map %)))
         l-getter-names (map listener-type-method-map listener-ifaces)]
     (if (empty? l-getter-names)
-        (throwf "cannot find any listener-list-getters for %s" (type listener))
+        (listener-throwf "cannot find any listener-list-getters for %s" (type listener))
         l-getter-names)))
 
 (defn get-listener-list
@@ -417,7 +417,7 @@
                            (remove nil?)
                            first)]
     (if (nil? listener-list)
-      (throwf "Don't know how to get ListenerList for object %s of type %s"
+      (listener-throwf "Don't know how to get ListenerList for object %s of type %s"
               object (type object))
       listener-list)))
 
