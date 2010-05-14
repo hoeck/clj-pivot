@@ -44,6 +44,7 @@
                                  Spinner Rollup Expander Sheet ActivityIndicator 
                                  Separator Palette ScrollBar
                                  ImageView Meter Prompt
+                                 TablePane$Filler
                                  ;; popups
                                  Dialog Tooltip Alert
                                  ;; tree
@@ -1457,12 +1458,19 @@
 (defn- table-pane-add-rows
   "Set rows of a table-pane.
   When setting a sequence of rows or [row fn], in the latter case, fn is
-  called to perform span-setting, in both cases, rows are set to the table-pane"
+  called to perform span-setting, in both cases, rows are set to the table-pane
+  The rows sequence may also contain vectors where the first element is not
+  a TablePane$Row. The vector is then applied to table-pane-row and then added to
+  this table-pane."
+  ;; this allows you to wrap table-pane-row definitions in
+  ;; table-panes into vectors
   [t rows]
   (let [rowseq (.getRows t)]
     (doseq [r rows]
       (if (vector? r)
-        (let [[r f] r]
+        (let [[r f] (if (instance? TablePane$Row (first r))
+                      r ;; its a [Row, fn] pair
+                      (apply table-pane-row r))]
           (.add rowseq r)
           (f t))
         (.add rowseq r)))))
@@ -1510,9 +1518,16 @@
                (when (number? col-idx) (TablePane/setColumnSpan c col-idx))
                (when (number? row-idx) (TablePane/setRowSpan c row-idx))))))]))
 
+
+(defproperties TablePane$Filler [f])
+
+(defcomponent filler [args]
+  (with-component [f TablePane$Filler]))
+
 (set-documentation table-pane (TablePane.) :keys & rows)
 (set-documentation table-pane-column (TablePane$Column.) :keys)
 (set-documentation table-pane-row (TablePane$Row.) :keys & components)
+(set-documentation filler (TablePane$Filler.) :keys)
 
 ;;  menus
 
