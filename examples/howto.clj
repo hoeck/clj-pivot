@@ -36,36 +36,31 @@ http://github.com/downloads/hoeck/clj-pivot/clj-pivot.jar
 ;; first, we have to require the pivot toplevel namespace with:
 (require '[hoeck.pivot :as pivot])
 ;; to use any components, we have to use:
-(require '[hoeck.pivot.components :as cm])
+(require '[hoeck.pivot.components :as c])
 ;; thats it
 
-;; the root display
-(def *display* (atom nil))
-
-;; function to set the root display
-(defn set-display [display]
-  (reset! *display* display))
-
-;; this shows an empty pivot frame
-(pivot/start set-display)
+;; pivot/start takes a function which is called at startup time
+;; and may be ommitted
+(pivot/start) ;; this shows an empty pivot frame
 
 ;; the pivot-do macro executes the given code in the pivot thread,
 ;; returns its result as a promise
 ;; if an exception occurs in the body, it will be thrown in the
 ;; calling thread, e.g. the REPL
 ;; now were testing the created frame
-(pivot/pivot-do (pivot/show @*display* (cm/push-button :data "convert")))
-
+(pivot/pivot-do (pivot/show @pivot/*display* (cm/push-button :data "convert")))
+ 
 ;; pivot/show takes a display and a component and shows it on the display
 ;; push-button is a function to construct standard buttons
 ;; like all component functions, it takes arguments as :key value pairs
 ;; see (doc push-button) to see all available arguments
 
-;; to make development easier, we write a short macro to quickly show
-;; a component on the display in our current setup
-(defmacro with-pivot-show [& body]
-  `(pivot/pivot-do (pivot/show @*display* ~@body)))
+;; to make the above code shorter, pivot contains macro, similar to ->
+(pivot/disp-> (pivot/show (cm/push-button :data "CONVERT")))
 
+;; to have a basis for this howto, we make it even shorter
+(defmacro with-pivot-show [& body]
+  (pivot/disp-> (pivot/show (do ~@body))))
 
 ;;  (2) the components
 ;; now we take a look at the components we need for our little converter

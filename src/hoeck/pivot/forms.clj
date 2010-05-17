@@ -21,21 +21,23 @@
 
 (def invalid-background-color [180 0 0 60])
 
+
 ;; data binding
 
-(defn set-component-tuple
-  "given a component, .load the tuple."
-  [component tuple]
-  (when (and component tuple)
-    (.load component (if tuple (make-dictionary tuple) tuple))))
+(defn set-component-map
+  "given a component, .load the given hash-map."
+  [component m]
+  (when (and component m)
+    (.load component (if m (make-dictionary m) m))))
 
-(defn get-component-tuple
-  "given a component, return a tuple of its bound values."
+(defn get-component-map
+  "given a component, return a hash-map of its bound values."
   [component]
   (when component
     (let [d (make-dictionary {})]
       (.store component d)
       (dictionary->hashmap d))))
+
 
 ;; typed text-inputs
 
@@ -287,7 +289,7 @@
         ;; close popup on textinput/listview changes
         til (text-input-listener _ (when (.isOpen popup) (.close popup)))
         lvl (list-view-selection-listener _ 
-              (do (on-select-f ti (::selected-item (get-component-tuple lv)))
+              (do (on-select-f ti (::selected-item (get-component-map lv)))
                   (when (.isOpen popup) (.close popup))))
         ;; popup listener
         wsl (window-state-listener {w :window :as args}

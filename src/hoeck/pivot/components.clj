@@ -1455,6 +1455,25 @@
 (defcomponent table-pane-column [args]
   (with-component [c TablePane$Column]))
 
+(defproperties TablePane$Row [r]
+  :height (set-relative-size .setHeight r it) (get-relative-size .getHeight r) "height, [10] means a relative height."
+  :highlighted (.setHighlighted r (boolean it)) (.isHighlighted r) "highlighted flag"
+  :visible (.setVisible r (boolean it)) (.isVisible r) "row visibility flag")
+
+(defcomponent table-pane-row [args components]
+  ;; components: a seq of components or vectors
+  ;; where vectors: [component [col-span row-span]], *,nil means, leave as-is.
+  (let [r (with-component [r TablePane$Row]
+            (doseq [c components]
+              (.add r (if (vector? c) (first c) c))))]
+    [r (fn [table-pane]
+         ;; set column and/or row span
+         (doseq [c components]
+           (when (vector? c)
+             (let [[c [col-idx row-idx]] c]
+               (when (number? col-idx) (TablePane/setColumnSpan c col-idx))
+               (when (number? row-idx) (TablePane/setRowSpan c row-idx))))))]))
+
 (defn- table-pane-add-rows
   "Set rows of a table-pane.
   When setting a sequence of rows or [row fn], in the latter case, fn is
@@ -1498,26 +1517,6 @@
   ;; rows given with set-properties are set
   (with-component [t TablePane]
     (table-pane-add-rows t rows)))
-
-(defproperties TablePane$Row [r]
-  :height (set-relative-size .setHeight r it) (get-relative-size .getHeight r) "height, [10] means a relative height."
-  :highlighted (.setHighlighted r (boolean it)) (.isHighlighted r) "highlighted flag"
-  :visible (.setVisible r (boolean it)) (.isVisible r) "row visibility flag")
-
-(defcomponent table-pane-row [args components]
-  ;; components: a seq of components or vectors
-  ;; where vectors: [component [col-span row-span]], *,nil means, leave as-is.
-  (let [r (with-component [r TablePane$Row]
-            (doseq [c components]
-              (.add r (if (vector? c) (first c) c))))]
-    [r (fn [table-pane]
-         ;; set column and/or row span
-         (doseq [c components]
-           (when (vector? c)
-             (let [[c [col-idx row-idx]] c]
-               (when (number? col-idx) (TablePane/setColumnSpan c col-idx))
-               (when (number? row-idx) (TablePane/setRowSpan c row-idx))))))]))
-
 
 (defproperties TablePane$Filler [f])
 
