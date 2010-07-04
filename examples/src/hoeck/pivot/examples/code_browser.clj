@@ -3,7 +3,7 @@
 ;; an applet to provide a simple environment to click
 ;; through sample applications
 
-(ns hoeck.pivot.examples.applet
+(ns hoeck.pivot.examples.code-browser
   (:require [hoeck.pivot.components :as c]
             [hoeck.pivot :as pivot]))
 
@@ -126,7 +126,7 @@
                 (c/find-component ::source)
                 (c/get-property :text))
         r (try
-           (load-string (str "(in-ns 'demo) (def show hoeck.pivot.examples.applet/show-component) " src))
+           (load-string (str "(in-ns 'demo) (def show hoeck.pivot.examples.code-browser/show-component) " src))
            (catch Exception e e))]
     (show-result r)))
 
@@ -161,7 +161,7 @@
   (require '[hoeck.pivot.components :as c]
            '[hoeck.pivot.listeners :as l]
            '[hoeck.pivot :as pivot])
-  (in-ns 'hoeck.pivot.examples.applet))
+  (in-ns 'hoeck.pivot.examples.code-browser))
 
 (defn launch []
   (demo-ns-setup)

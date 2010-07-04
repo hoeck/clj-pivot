@@ -10,15 +10,15 @@
 <h1>Example</h1>
 <p>with clojure!</p>
 <!-- archive="lib/apache-pivot-core-1.4.jar,lib/apache-pivot-wtk-1.4.jar,lib/apache-pivot-wtk-terra-1.4.jar,lib/clojure.jar,lib/clojure-contrib.jar,clj-pivot.jar" -->
-<applet height="300" 
-        width="480"
-        archive="clj-pivot-standalone.jar" 
+<applet height="400" 
+        width="580"
+        archive="demo.jar" 
         code="org.apache.pivot.wtk.BrowserApplicationContext$HostApplet">
   <param value="false" name="codebase_lookup">
   <param value="-Dsun.awt.noerasebackground=true -Dsun.awt.erasebackgroundonresize=true" name="java_arguments">
-  <param value="hoeck.pivot.examples.ExampleApp" name="application_class_name">
+  <param value="hoeck.pivot.ClojureApplication" name="application_class_name">
+  <param value="require=hoeck.pivot.examples.code_browser" name="startup_properties">
 </applet>
 <p>This version of the application was written entirely in Clojure</p>
 </body>
 </html>
-

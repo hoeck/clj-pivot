@@ -1,0 +1,86 @@
+<project name="Web Start Demo" default="jar">
+  <description>Test für Pivot via Web Start.</description>
+
+  <property name="build.dir" location="build" />
+  <property name="source.dir" location="src" />
+  <property name="libs.dir" location="lib" />
+  <property name="demo.jar" location="demo.jar" />
+  <property name="keystore" location="keystore" />
+  <property name="example.dir" location="examples" />
+
+  <path id="classpath">
+    <path location="${build.dir}" />
+    <path location="${source.dir}" />
+    <path location="${example.dir}/src" />
+    
+    <fileset dir="${libs.dir}">
+      <include name="*.jar" />
+    </fileset>
+  </path>
+  
+  <target name="clean" description="Remove generated files">
+    <delete file="${demo.jar}" />
+    <delete dir="${build.dir}" />
+  </target>
+
+  <target name="init" depends="clean">
+    <tstamp/>
+    <mkdir dir="${build.dir}" />
+  </target>
+
+  <target name="compile" depends="compile-clj-pivot, compile-examples" description="Compile all sources." />
+
+  <target name="compile-clj-pivot" depends="init" description="Compile clj-pivot sources">
+    <java classname="clojure.lang.Compile" fork="true">
+      <sysproperty key="clojure.compile.path" value="${build.dir}" />
+      <classpath refid="classpath" />
+      <arg value="hoeck.pivot" />
+      <arg value="hoeck.pivot.components" />
+      <arg value="hoeck.pivot.listeners" />
+      <arg value="hoeck.pivot.forms" />
+      <arg value="hoeck.pivot.icons" />
+      <arg value="hoeck.pivot.datastructures" />
+      <arg value="hoeck.pivot.content" />
+      <arg value="hoeck.pivot.content.table-view" />
+    </java>
+  </target>
+
+  <target name="compile-examples" depends="init" description="Compile the example applet">
+    <java classname="clojure.lang.Compile" fork="true">
+      <sysproperty key="clojure.compile.path" value="${build.dir}" />
+      <classpath refid="classpath" />
+      <arg value="hoeck.pivot.examples.code_browser" />
+    </java>
+  </target>
+
+  <target name="jar-all" description="Create jar file without compilation">
+    <jar jarfile="${demo.jar}" level="9">
+      <fileset dir="${example.dir}/snippets" includes="*.clj" />
+
+      <fileset dir="${build.dir}" includes="hoeck/**/*.class" />
+
+      <!--<zipfileset src="clj-pivot.jar" excludes="META-INF/**, **/*.clj" />-->
+      <zipfileset src="${libs.dir}/clojure.jar" excludes="META-INF/**/*, **/*.clj" />
+      <!--<zipfileset src="${libs.dir}/clojure-contrib.jar" excludes="META-INF/**/*" />-->
+      <!--<zipfileset src="${libs.dir}/pivot-charts-1.4.jar" excludes="META-INF/**/*" />-->
+      <zipfileset src="${libs.dir}/apache-pivot-core-1.4.jar" excludes="META-INF/**/*" />
+      <!--<zipfileset src="${libs.dir}/pivot-tools-1.4.jar" excludes="META-INF/**/*" />-->
+      <!--<zipfileset src="${libs.dir}/pivot-web-1.4.jar" excludes="META-INF/**/*" />-->
+      <!--<zipfileset src="${libs.dir}/pivot-web-server-1.4.jar" excludes="META-INF/**/*" />-->
+      <zipfileset src="${libs.dir}/apache-pivot-wtk-1.4.jar" excludes="META-INF/**/*" />
+      <zipfileset src="${libs.dir}/apache-pivot-wtk-terra-1.4.jar" excludes="META-INF/**/*" />
+
+      <service type="org.apache.pivot.wtk.Theme">
+        <provider classname="org.apache.pivot.wtk.skin.terra.TerraTheme" />
+      </service>
+    </jar>
+  </target>
+
+  <target name="sign" description="Sign the jar file">
+    <signjar jar="${demo.jar}" keystore="${keystore}" alias="selfsigned" storepass="password" />
+  </target>
+
+  <target name="jar" description="Create jar file" depends="compile,jar-all,sign" />
+
+</project>
+
