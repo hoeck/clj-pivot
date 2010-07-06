@@ -1,5 +1,5 @@
-<project name="Web Start Demo" default="jar">
-  <description>Test für Pivot via Web Start.</description>
+<project name="clj-pivot" default="jar">
+  <description>Using Pivot from Clojure.</description>
 
   <property name="build.dir" location="build" />
   <property name="source.dir" location="src" />
@@ -20,6 +20,7 @@
   
   <target name="clean" description="Remove generated files">
     <delete file="${demo.jar}" />
+    <delete file="clj-pivot.jar" />
     <delete dir="${build.dir}" />
   </target>
 
@@ -53,7 +54,18 @@
     </java>
   </target>
 
-  <target name="jar-all" description="Create jar file without compilation">
+  <target name="jar-clj-pivot" depends="compile-clj-pivot" description="Create jar file of clj-pivot only">
+    <jar jarfile="clj-pivot.jar" level="9">
+      <fileset dir="${build.dir}" includes="hoeck/**/*.class" />
+
+      <service type="org.apache.pivot.wtk.Theme">
+        <provider classname="org.apache.pivot.wtk.skin.terra.TerraTheme" />
+      </service>
+    </jar>
+  </target>
+
+  <target name="jar-all"
+          description="Create jar file including Clojure, Pivot and clj-pivot plus examples">
     <jar jarfile="${demo.jar}" level="9">
       <fileset dir="${example.dir}/snippets" includes="*.clj" />
 
@@ -62,13 +74,13 @@
       <!--<zipfileset src="clj-pivot.jar" excludes="META-INF/**, **/*.clj" />-->
       <zipfileset src="${libs.dir}/clojure.jar" excludes="META-INF/**/*, **/*.clj" />
       <!--<zipfileset src="${libs.dir}/clojure-contrib.jar" excludes="META-INF/**/*" />-->
-      <!--<zipfileset src="${libs.dir}/pivot-charts-1.4.jar" excludes="META-INF/**/*" />-->
-      <zipfileset src="${libs.dir}/apache-pivot-core-1.4.jar" excludes="META-INF/**/*" />
-      <!--<zipfileset src="${libs.dir}/pivot-tools-1.4.jar" excludes="META-INF/**/*" />-->
-      <!--<zipfileset src="${libs.dir}/pivot-web-1.4.jar" excludes="META-INF/**/*" />-->
-      <!--<zipfileset src="${libs.dir}/pivot-web-server-1.4.jar" excludes="META-INF/**/*" />-->
-      <zipfileset src="${libs.dir}/apache-pivot-wtk-1.4.jar" excludes="META-INF/**/*" />
-      <zipfileset src="${libs.dir}/apache-pivot-wtk-terra-1.4.jar" excludes="META-INF/**/*" />
+      <!--<zipfileset src="${libs.dir}/pivot-charts-1.5.jar" excludes="META-INF/**/*" />-->
+      <zipfileset src="${libs.dir}/pivot-core-1.5.jar" excludes="META-INF/**/*" />
+      <!--<zipfileset src="${libs.dir}/pivot-tools-1.5.jar" excludes="META-INF/**/*" />-->
+      <!--<zipfileset src="${libs.dir}/pivot-web-1.5.jar" excludes="META-INF/**/*" />-->
+      <!--<zipfileset src="${libs.dir}/pivot-web-server-1.5.jar" excludes="META-INF/**/*" />-->
+      <zipfileset src="${libs.dir}/pivot-wtk-1.5.jar" excludes="META-INF/**/*" />
+      <zipfileset src="${libs.dir}/pivot-wtk-terra-1.5.jar" excludes="META-INF/**/*" />
 
       <service type="org.apache.pivot.wtk.Theme">
         <provider classname="org.apache.pivot.wtk.skin.terra.TerraTheme" />
@@ -83,4 +95,3 @@
   <target name="jar" description="Create jar file" depends="compile,jar-all,sign" />
 
 </project>
-
