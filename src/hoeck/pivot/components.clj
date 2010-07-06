@@ -84,7 +84,7 @@
 					 TreeNode
                                          ButtonData
                                          ListItem)
-           (org.apache.pivot.wtk.text.validation Validator)
+           (org.apache.pivot.wtk.validation Validator)
            (org.apache.pivot.util Filter CalendarDate)
 	   (org.apache.pivot.collections Map Dictionary)
            (org.apache.pivot.wtk.skin CardPaneSkin$SelectionChangeEffect)

@@ -42,7 +42,7 @@
 	    TableViewSelectionListener TextAreaCharacterListener TextAreaListener
 	    TextAreaSelectionListener TextInputCharacterListener
 	    TextInputListener TextInputSelectionListener TextInputTextListener
-	    TooltipListener TreeViewBranchListener TreeViewListener
+	    TreeViewBranchListener TreeViewListener
 	    TreeViewNodeListener TreeViewNodeStateListener
 	    TreeViewSelectionListener ViewportListener
 	    WindowActionMappingListener WindowClassListener WindowListener
@@ -54,7 +54,6 @@
            (org.apache.pivot.collections FilteredListListener
                                          ListListener
                                          MapListener
-                                         MapListListener
                                          QueueListener
                                          SetListener
                                          StackListener)
@@ -98,7 +97,7 @@
                        TableViewSelectionListener TextAreaCharacterListener TextAreaListener
                        TextAreaSelectionListener TextInputCharacterListener
                        TextInputListener TextInputSelectionListener TextInputTextListener
-                       TooltipListener TreeViewBranchListener TreeViewListener
+                       TreeViewBranchListener TreeViewListener
                        TreeViewNodeListener TreeViewNodeStateListener
                        TreeViewSelectionListener ViewportListener
                        WindowActionMappingListener WindowClassListener WindowListener
@@ -107,7 +106,6 @@
                        FilteredListListener
                        ListListener
                        MapListener
-                       MapListListener
                        QueueListener
                        SetListener
                        StackListener]))
@@ -343,7 +341,6 @@
       Menu$ItemListener "getItemListeners",
       TablePaneListener "getTablePaneListeners",
       ListViewItemListener "getListViewItemListeners",
-      TooltipListener "getTooltipListeners",
       TableViewHeaderListener "getTableViewHeaderListeners",
       TabPaneSelectionListener "getTabPaneSelectionListeners",
       TextInputSelectionListener "getTextInputSelectionListeners",
