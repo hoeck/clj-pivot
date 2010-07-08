@@ -1608,10 +1608,28 @@
 
 (set-documentation menu-popup (MenuPopup.) :keys)
 
+;; tooltip
+
+(defproperties Tooltip [t])
+
+(defcomponent tooltip [args [c]]
+  (with-component [t Tooltip]
+    (cond (string? c)
+          (.setContent t (text-area :text c :styles {:wrap-text false}))
+          (instance? Component c)
+          (.setContent t c))))
+
+(set-documentation tooltip (Tooltip.) :keys component-or-tooltip-text)
+
 ;; component misc
 
 (defn focused-component []
   (Component/getFocusedComponent))
+
+(defn component?
+  "Return true if x is a org.apache.pivot.wtk.Component."
+  [x]
+  (instance? Component x))
 
 ;; component tree, using :user to identify components
 
