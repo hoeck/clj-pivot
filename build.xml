@@ -50,7 +50,7 @@
     <java classname="clojure.lang.Compile" fork="true">
       <sysproperty key="clojure.compile.path" value="${build.dir}" />
       <classpath refid="classpath" />
-      <arg value="hoeck.pivot.examples.code_browser" />
+      <arg value="hoeck.pivot.examples.code-browser" />
     </java>
   </target>
 
@@ -68,6 +68,7 @@
           description="Create jar file including Clojure, Pivot and clj-pivot plus examples">
     <jar jarfile="${demo.jar}" level="9">
       <fileset dir="${example.dir}/snippets" includes="*.clj" />
+      <fileset dir="${example.dir}/src" includes="*.properties" />
 
       <fileset dir="${build.dir}" includes="hoeck/**/*.class" />
 
