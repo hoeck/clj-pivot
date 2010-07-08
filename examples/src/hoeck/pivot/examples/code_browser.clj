@@ -5,12 +5,14 @@
 
 (ns hoeck.pivot.examples.code-browser
   (:require [hoeck.pivot.components :as c]
+            [hoeck.pivot.listeners :as l]
             [hoeck.pivot :as pivot]))
 
 ;;;;;;;;;;;;;;;
 
 (def example-resources ["celsius.clj"
-                        "forms.clj"])
+                        "forms.clj"
+                        "tooltips.clj"])
 
 (defn slurp-stream
   "Reads the stream is by f using the encoding enc into a string
@@ -74,24 +76,27 @@
 (defn eval-area []
   (c/table-pane
    :styles {:vertical-spacing 2}
-   :cols [-1 [10] 100]
-   [[(c/boxpane :styles {:fill true}
-                :orientation :horiz
-                (c/separator :heading "Description")
-                (c/text-area :editable false
-                             :text ""
-                             :user-name ::description)) [3]]]
+   :cols [[1]]
+   [(c/boxpane :styles {:fill true}
+               :orientation :horiz
+               (c/separator :heading "Description")
+               (c/text-area :editable false
+                            :text ""
+                            :user-name ::description))]
    (c/table-pane-row
-    :height [10]
-    [(c/border :title " code "
-               (c/scrollpane
-                :view (c/text-area :text "(c/push-button :data \"foo\")"
-                                   :user-name ::source))) [3]])
-   [(c/label :styles {:vertical-alignment :center} "result:")
-    (c/label :styles {:vertical-alignment :center} :text "" :user-name ::result)
-    (c/push-button :data "eval"
-                   :preferred-width [* 100 *]
-                   :user-name ::eval-button)]))
+    :height [1]
+    (c/border :title " code "
+              (c/scrollpane
+               :vert-scrollbar-policy :fill-to-capacity
+               :horiz-scrollbar-policy :fill-to-capacity
+               :view (c/text-area :text "(c/push-button :data \"foo\" :user {:name :foo :tooltip \"blah\nblah\"})"
+                                  :user-name ::source))))
+   [(c/table-pane :cols [-1 [10] 100]
+                  [(c/label :styles {:vertical-alignment :center} "result:")
+                   (c/label :styles {:vertical-alignment :center} :text "" :user-name ::result)
+                   (c/push-button :data "eval"
+                                  :preferred-width [* 100 *]
+                                  :user-name ::eval-button)])]))
 
 (defn load-code [r src descr]
   (-> r
@@ -128,7 +133,8 @@
         r (try
            (load-string (str "(in-ns 'demo) (def show hoeck.pivot.examples.code-browser/show-component) " src))
            (catch Exception e e))]
-    (show-result r)))
+    (show-result r)
+    (when (c/component? r) (show-component r))))
 
 (defn tut-menu []
   (apply c/accordion
@@ -169,6 +175,5 @@
 
 (launch)
 
-
-
-
+;; to launch from the repl: (do (pivot/start) (launch))
+;; closing the then opened window will close the repl too
