@@ -50,8 +50,16 @@
   (startup [this disp property-map]
            (require 'hoeck.pivot)
            (alter-var-root #'display (constantly disp))
-           (println "property-map:" property-map)
-           (when-let [rq (.get property-map "require")]
+           (when-let [rq (or
+                          ;; use a commandline argument
+                          (.get property-map "require")
+                          ;; or a property file
+                          (let [s (.getResourceAsStream
+                                   (clojure.lang.RT/baseLoader)
+                                   "startup.properties")
+                                properties (doto (new java.util.Properties)
+                                             (.load s))]
+                            (.getProperty properties "hoeck.pivot.require")))]
              (require (symbol rq))))
   (shutdown [this optional?]
             ;; optional? - If true, the shutdown may be canceled by returning a value of true.
