@@ -43,6 +43,7 @@
       <arg value="hoeck.pivot.datastructures" />
       <arg value="hoeck.pivot.content" />
       <arg value="hoeck.pivot.content.table-view" />
+      <arg value="hoeck.pivot.Application" />
     </java>
   </target>
 
@@ -86,6 +87,10 @@
       <service type="org.apache.pivot.wtk.Theme">
         <provider classname="org.apache.pivot.wtk.skin.terra.TerraTheme" />
       </service>
+      <manifest>
+        <attribute name="Main-Class" value="hoeck.pivot.Application"/>
+        <attribute name="Class-Path" value="."/>
+      </manifest>
     </jar>
   </target>
 

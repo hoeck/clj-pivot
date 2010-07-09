@@ -7,13 +7,11 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns hoeck.pivot
-  (:require [hoeck.pivot.Application :as app])
   (:import (org.apache.pivot.wtk Application
                                  Application$UncaughtExceptionHandler
                                  ApplicationContext
                                  DesktopApplicationContext
                                  Window Component)))
-
 
 
 (def display nil) ;; the root component
@@ -43,48 +41,11 @@
                             (catch Throwable t# t#))))
      (ExceptionDelegatingPromise. result#)))
 
-(deftype ClojureApplication []
-  ;; pivot app implementation which will load clj-pivot
-  ;; --require="" the given namespace
-  Application
-  (startup [this disp property-map]
-           (require 'hoeck.pivot)
-           (alter-var-root #'display (constantly disp))
-           (when-let [rq (or
-                          ;; use a commandline argument
-                          (.get property-map "require")
-                          ;; or a property file
-                          (let [s (.getResourceAsStream
-                                   (clojure.lang.RT/baseLoader)
-                                   "startup.properties")
-                                properties (doto (new java.util.Properties)
-                                             (.load s))]
-                            (.getProperty properties "hoeck.pivot.require")))]
-             (require (symbol rq))))
-  (shutdown [this optional?]
-            ;; optional? - If true, the shutdown may be canceled by returning a value of true.
-            ;; return-value: true to cancel shutdown, false to continue.
-            false)
-  (suspend [this])
-  (resume [this])
-  Application$UncaughtExceptionHandler
-  (uncaughtExceptionThrown [this e] (println e)))
-
 (defn start
-  "Given a class or a string, use that class to start pivot
-  (which must implement org.apache.pivot.Application)
-  using a DesktopApplicationContext. This works only for AOT-compiled classes.
-  Given a function, start pivot and invoke the function with the pivot display.
-  Use the latter approach for starting pivot during development. Function may be nil,
-  in this case, only open a pivot display and store it in display for further use."
-  [& [app-class-or-fn & args]]
-  (cond (class? app-class-or-fn)
-        (DesktopApplicationContext/main app-class-or-fn, (into-array String (map str args)))
-        (string? app-class-or-fn)
-        (DesktopApplicationContext/main (into-array String (cons app-class-or-fn (map str args))))
-        (fn? app-class-or-fn)
-        (start ClojureApplication)
-        :else (start ClojureApplication)))
+  "Open a pivot display and store the created display in the `display' Var.
+  Use this function to start pivot from a repl or a repl like environment."
+  [& args]
+  (DesktopApplicationContext/main (into-array String (cons "hoeck.pivot.Application" (map str args)))))
 
 (defn show
   "show a single window using the given display."
