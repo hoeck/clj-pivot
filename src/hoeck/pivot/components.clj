@@ -724,6 +724,8 @@
   :height (.setHeight c it) (.getHeight c) "Height"
   :width (.setWidth c it) (.getWidth c) "Width"
   :visible (.setVisible c (boolean it)) (.isVisible c) "Visible flag"
+  :window nil (.getWindow c) "The components window, read-only."
+  :display nil (.getDisplay c) "The components display, read-only."
 
   :parent nil (.getParent c) "The components parent, read-only."
 
