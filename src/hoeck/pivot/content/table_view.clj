@@ -20,34 +20,41 @@
 
 ;;; table-view-editor
 
-(defn reposition [tv-editor]
-  (let [{:keys [tv row-index col-index edit-component popup]} @(.state tv-editor)
+(defn reposition
+  "Place the given editors popup window centered above the to be edited cell
+  of the table view."
+  [tv-editor]
+  (let [{:keys [table-view row-idx col-idx editor popup]} (get-state tv-editor)
+        tv table-view
+        edit-component (component editor)
         ;; Get the cell bounds
-        cb (let [cb (.getCellBounds tv row-index col-index)]
+        cb (let [cb (.getCellBounds tv row-idx col-idx)]
              (.scrollAreaToVisible tv cb)
-             (.getVisibleArea cb))
+             (.getVisibleArea tv cb))
         coords (.mapPointToAncestor tv (.getDisplay tv)
-                                   (.x cb)
-                                   (.y cb))]
+                                    (.x cb)
+                                    (.y cb))]
     ;; Position the popup/editor to fit over the cell bounds
     (set-property edit-component :preferred-width (.width cb))
     (set-property popup :location
                   [(.x coords)
                    (+ (.y coords)
                       (/ (- (.height cb)
-                            (get-property edit-component :preferred-height))
+                            (-> edit-component (get-property :preferred-height) (nth 1)))
                          2))])))
 
 (defn basic-editor-setup
-  "installs listeners in the popup-window, the popups parent window
-  and in the table-view."
-  [e edit-component]
-  (let [tv (:table-view @(:state e))
-        edit-component (-> e :state deref :editor component)
+  "Creates and returns a popup-window containing the edit-component.
+  Installs listeners in the popup-window, the popups parent window
+  and in the table-view.
+  Places the window over the to be edited table-view cell."
+  [e]
+  (let [{tv :table-view editor :editor} (get-state e)
+        edit-component (component editor)
         popup (window edit-component)
         mouse-l (container-mouse-listener
                  {c :container [x y] :int}
-                 :mouse-down (do (when-not (= (.getComponentAt x y)
+                 :mouse-down (do (when-not (= (.getComponentAt c x y)
                                               popup)
                                    (.saveChanges e))
                                  false)
@@ -63,38 +70,50 @@
               :row-editor-changed (.cancelEdit e))
         tv-row-l (table-view-row-listener _ (.cancelEdit e))
         popup-l (window-state-listener
-                 {w :window, d :display, o :owner}
+                 {w :window, d :display :as args}
                  :preview-window-open Vote/APPROVE
                  :preview-window-close Vote/APPROVE
                  :window-opened
                  (do (add-listener (get-property w :display) mouse-l)
                      (add-listener tv comp-l tv-l tv-row-l))
                  :window-closed
-                 (do (remove-listener d mouse-l)
-                     (remove-listener tv comp-l tv-l tv-row-l)
-                     (.moveToFront o)
-                     (reset! (:state e) nil)))]
+                 (let [[window owner] w]
+                   (do (remove-listener d mouse-l)
+                       (remove-listener tv comp-l tv-l tv-row-l)
+                       (.moveToFront owner)
+                       (set-state e nil))))]
     (add-listener popup popup-l)
     (add-listener edit-component
                   (component-key-listener
                    {keycode :int}
-                   :key-pressed (if (= keycode Keyboard$KeyCode/ENTER)
-                                  (.saveChanges e)
-                                  (.cancelEdit e))))
-    popup-l))
+                   :key-pressed (condp = keycode
+                                  Keyboard$KeyCode/ENTER (do (.saveChanges e) true)
+                                  Keyboard$KeyCode/ESCAPE (do (.cancelEdit e) true)
+                                  false)
+                   false))
+    popup))
 
-(defn get-tuple [tv row-idx]
+(defn get-tuple
+  "Return the contents of the table-views data at row row-idx."
+  [tv row-idx]
   (.get (get-property tv :data) row-idx))
 
-(defn get-column-key [tv col-idx]
+(defn get-column-key
+  "Given the column-index, return the column name of the table-view as a keyword."
+  [tv col-idx]
   (let [c (.get (get-property tv :cols) col-idx)]
     (keyword (get-property c :name))))
 
-(deftype CljTableViewEditor [editor-ctor state]
+;; implements the plumbing around defining editors
+(deftype CljTableViewEditor [editor-ctor
+                             #^{:volatile-mutable true} state
+                             #^{:volatile-mutable true} listener-list]
+  Stateful
+  (get-state [_] state)
+  (set-state [_ s] (set! state s))
   TableView$RowEditor
   (editRow [this, tv, row-index, col-index]
-           (let [ll (TableView$RowEditor$RowEditorListenerList.)
-                 vote (.previewEditRow ll row-index col-index)]
+           (let [vote (.previewEditRow listener-list this tv row-index col-index)]
              (if (= vote Vote/APPROVE)
                (let [editor (editor-ctor
                              (let [k (get-column-key tv col-index)
@@ -105,55 +124,52 @@
                                 :key k
                                 :row-idx row-index
                                 :col-idx col-index}))]
-                 (reset! state (atom {:tv tv
-                                      :row-idx row-index
-                                      :col-idx col-index
-                                      :editor editor
-                                      :row-editor-listeners ll}))
+                 (set! state {:table-view tv
+                              :row-idx row-index
+                              :col-idx col-index
+                              :editor editor})
                  (let [popup (basic-editor-setup this)]
-                   (swap! state assoc :popup popup)
+                   (set! state (assoc state :popup popup))
                    (.open popup (get-property tv :window))
+                   (reposition this)
                    (on-open editor)
-                   (.rowEditing ll this tv row-index col-index)))
-               (.editRowVetoed ll this vote))))
-  (getRowEditorListeners [this] (:row-editor-listeners @state))
-  (cancelEdit
-   [this]
-   (-> @state :popup .close)
-   (-> @state
-       :row-editor-listeners
-       (.editCancelled this (:tv @state) (:row-idx @state) (:col-idx @state)))
-   (reset! state {}))
-  (isEditing [this] (boolean (:editing @state)))
-  (saveChanges
-   [this]
-   (let [{:keys [tv row-idx col-idx
-                 row-editor-listeners
-                 editor]} @state
-                 changes (make-dictionary
-                          {(get-column-key tv col-idx)
-                           (value editor)})
-                 vote (.previewSaveChanges row-editor-listeners
-                                           this
-                                           tv row-idx col-idx changes)]
-     (if (= vote Vote/APPROVE)
-       (let [tup (merge (get-tuple tv row-idx) changes)
-             data (get-property tv :data)]
-         ;; Notifying the parent will close the popup
-         (if-not (.getComparator data)
-           (.put data row-idx tup)
-           (do (.remove data row-idx 1)
-               (.add data tup)
-               (let [i (.indexOf data tup)]
-                 (set-property tv :selected-index i)
-                 (.scrollAreaToVisible tv (.getRowBounds tv i)))))
-         (.changesSaved row-editor-listeners this tv row-idx col-idx))
-       (.saveChangesVetoed row-editor-listeners this vote)
-       ))))
+                   (.rowEditing listener-list this tv row-index col-index)))
+               (.editRowVetoed listener-list this vote))))
+  (getRowEditorListeners [this] listener-list)
+  (cancelEdit [this]
+              (let [{tv :table-view ri :row-idx ci :col-idx} state]
+                (-> state :popup .close) ;; clears state!!!
+                (.editCancelled listener-list this tv ri ci)))
+  (isEditing [this] (boolean (:editing state)))
+  (saveChanges [this]
+               (let [{:keys [table-view row-idx col-idx editor]} state
+                     tv table-view
+                     changes {(get-column-key tv col-idx) (value editor)}
+                     changes-dict (make-dictionary changes)
+                     vote (.previewSaveChanges listener-list this tv row-idx col-idx changes-dict)]
+                 (if (= vote Vote/APPROVE)
+                   (let [tup (merge (get-tuple tv row-idx) changes)
+                         data (get-property tv :data)]
+                     ;; Notifying the parent will close the popup
+                     (if-not (.getComparator data)
+                       (.update data row-idx tup)
+                       (do (.remove data row-idx 1)
+                           (.add data tup)
+                           (let [i (.indexOf data tup)]
+                             (set-property tv :selected-index i)
+                             (.scrollAreaToVisible tv (.getRowBounds tv i)))))
+                     (.changesSaved listener-list this tv row-idx col-idx))
+                   (.saveChangesVetoed listener-list this vote)))))
 
-(defn table-view-editor [editor-ctor]
-  (CljTableViewEditor. editor-ctor (atom {})))
+(defn table-view-editor
+  "Constructor-fn to wrap a protocol defined clj-pivot editor in a valid
+  pivot TableView$RowEditor corset."
+  [editor-ctor]
+  (CljTableViewEditor. editor-ctor
+                       {}
+                       (TableView$RowEditor$RowEditorListenerList.)))
 
+;; provide a property for editors
 (defproperties TableView [tv]
   :editor (.setRowEditor tv (table-view-editor it)) (.getRowEditor tv)
   "The row editor, see hoeck.pivot.content for implementations.")
@@ -161,14 +177,6 @@
 
 ;; renderer
 
-  ;; "Returns a TableView$CellRenderer implemented through the render-f function.
-  ;; Calling render-f without an argument should return a component (i.e. a Label)
-  ;; which is used to render data cells.
-  ;; Upon rendering, render-f is called with a map of arguments:
-  ;;   :component :value :table-view :column 
-  ;;   :row-selected? :row-highlighted? :row-disabled?
-  ;; and should set the given :component according to its needs, eg:
-  ;;   (when row-highlighted? (label :self (:component args) :font [\"Arial\" :bold 12]))."
 (deftype TableViewCellRenderer [r]
   TableView$CellRenderer
   ;; TableView$CellRenderer
@@ -235,7 +243,10 @@
       (.put "color" color)
       (.put "font" (.get tv-styles "font")))))
 
-(defn table-view-cell-renderer [renderer]
+(defn table-view-cell-renderer
+  "Given a function which returns an implementation of Renderer, return a
+  pivot TableViewCellRenderer implementation."
+  [renderer]
   (TableViewCellRenderer. (renderer)))
 
 (defproperties TableView$Column [t]
@@ -247,23 +258,12 @@
 (defn column-dispatch-editor
   "an editor which looks in the current columns userdata for a suitable
   ::editor."
-  []
-  (fn [{n :column-name
-        tv :table-view
-        :as args}]
-    (when-let [ed (-> tv
-                      (get-property :columns)
-                      (get n)
-                      (get-property :editor))]
-      (ed args))))
-
-(defproperties TableView$Column [tc]
-  :editor
-  (.setUserdata tc (assoc (or (.getUserData tc) {})
-                     ::editor it))
-  (get (.getUserData tc) ::editor)
-  "Sets the editor to user for this column, requires a proper table-view :editor to be set.")
-
+  [{k :key tv :table-view :as args}]
+  (when-let [ed (-> tv
+                    (get-property :user)
+                    :editors
+                    (get k))]
+    (ed args)))
 
 ;;; editor & renderer implementations
 
@@ -273,8 +273,8 @@
   Editor
   (value [this] (get-property ti :text))
   (on-open [this] (doto ti
-                  (.selectAll)
-                  (.requestFocus))))
+                    (.selectAll)
+                    (.requestFocus))))
 
 (defn text-input-editor [{v :value}]
   (TextInputEditor. (text-input :text v)))
@@ -289,3 +289,4 @@
 
 (defn text-renderer []
   (TextRenderer. (label)))
+
