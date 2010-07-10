@@ -189,19 +189,17 @@
 (defn get-listener-method-argmap
   "return an argvector and a map which binds those args to keywords. Keywords have their 
   names from the corresponding argument types.
-  Primitive arguments of the same type are packed into a vector, as they often declarate
+  Two or more arguments of the same type are packed into a vector, as they often denote
   things like [width height], [currentIdx, prevIdx] or [x y].
   The argmap always contains :this, referencing the first arg in argvec and
   :method with the method's lispified keyworded methodname."
   [method]
   (let [argmap-assoc (fn [m [k v]]
-                       (if (#{:int :float :double} k)
-                         (assoc m k (if-let [x (get m k)]
-                                      (if (vector? x) ;; box only if there a are two or more primitives in the methods argmap
-                                        (conj x v)
-                                        (conj [x] v))
-                                      v))
-                         (assoc m k v)))
+                       (assoc m k (if-let [x (get m k)]
+                                    (if (vector? x) ;; box only if there a are two or more same keys in the methods argmap
+                                      (conj x v)
+                                      (conj [x] v))
+                                    v)))
         keys (method-argument-keys method)
         args (vec (take (count keys) (repeatedly gensym)))]
     [(assoc (reduce argmap-assoc {} (map vector keys args))
@@ -210,7 +208,8 @@
      args]))
 
 (comment (get-listener-method-argmap (val (first (val (first listener-map)))))
-         (get-listener-method-argmap ((listener-map "ComponentListener") "preferredSizeChanged")))
+         (get-listener-method-argmap (((force listener-map) "ComponentListener") "preferredSizeChanged"))
+         (get-listener-method-argmap (((force listener-map) "WindowStateListener") "windowClosed")))
 
 (defmacro def-listener-type
   "Generate an implementation of the given listener interface using deftype.
