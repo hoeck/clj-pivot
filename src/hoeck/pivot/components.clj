@@ -934,8 +934,8 @@
 
 (defcomponent rollup [args [heading content]]
   (with-component [r Rollup]
-    (set-property r :heading heading)
-    (set-property r :content content)))
+    (when heading (set-property r :heading heading))
+    (when content (set-property r :content content))))
 
 (set-documentation rollup (Rollup.) :keys heading content)
 
