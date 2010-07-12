@@ -10,7 +10,8 @@
   (:use hoeck.pivot.content ;; editor
         hoeck.pivot.components
         hoeck.pivot.listeners
-        hoeck.pivot.datastructures)
+        hoeck.pivot.datastructures
+        [clojure.set :only [map-invert]])
   (:import (org.apache.pivot.wtk Keyboard Keyboard$KeyCode
                                  TableView, TableView$Column
                                  TableView$CellRenderer TableView$RowEditor
@@ -54,10 +55,12 @@
         popup (window edit-component)
         mouse-l (container-mouse-listener
                  {c :container [x y] :int}
-                 :mouse-down (do (when-not (= (.getComponentAt c x y)
-                                              popup)
-                                   (.saveChanges e))
-                                 false)
+                 :mouse-down (let [clicked-c (.getComponentAt c x y)]
+                               (when-not (or (= clicked-c popup)
+                                             (and (instance? org.apache.pivot.wtk.ListButton edit-component)
+                                                  (= clicked-c (.getListPopup edit-component))))
+                                 (.saveChanges e))
+                               false)
                  :mouse-wheel true
                  false)
         comp-l (component-listener
@@ -75,11 +78,18 @@
                  :preview-window-close Vote/APPROVE
                  :window-opened
                  (do (add-listener (get-property w :display) mouse-l)
-                     (add-listener tv comp-l tv-l tv-row-l))
+                     (add-listener tv comp-l tv-l tv-row-l)
+                     ;; add the listener in charge of calling (reposition)
+                     ;; also to the parent component.
+                     ;; table-views hosted inside a scrollpane will not
+                     ;; receive component size-changed and location-changed
+                     ;; events (bug?)
+                     (add-listener (get-property tv :parent) comp-l))
                  :window-closed
                  (let [[window owner] w]
                    (do (remove-listener d mouse-l)
                        (remove-listener tv comp-l tv-l tv-row-l)
+                       (remove-listener (get-property tv :parent) comp-l)
                        (.moveToFront owner)
                        (set-state e nil))))]
     (add-listener popup popup-l)
@@ -249,21 +259,23 @@
   [renderer]
   (TableViewCellRenderer. (renderer)))
 
+
+;;(declare text-renderer)
 (defproperties TableView$Column [t]
-  :renderer (.setCellRenderer t (table-view-cell-renderer it)) (.getCellRenderer t)
+  :renderer
+  (.setCellRenderer t (table-view-cell-renderer it))
+  (.getCellRenderer t)
   "The row editor, see hoeck.pivot.content for implementations.")
 
 ;; editor-dispatch, each col his own editor
 
 (defn column-dispatch-editor
   "an editor which looks in the current columns userdata for a suitable
-  ::editor."
-  [{k :key tv :table-view :as args}]
-  (when-let [ed (-> tv
-                    (get-property :user)
-                    :editors
-                    (get k))]
-    (ed args)))
+  :editor"
+  ([& {:as column-editor-map}]
+     (fn [{k :key tv :table-view :as args}]
+       (when-let [ed (get column-editor-map k)]
+         (ed args)))))
 
 ;;; editor & renderer implementations
 
@@ -276,8 +288,9 @@
                     (.selectAll)
                     (.requestFocus))))
 
-(defn text-input-editor [{v :value}]
-  (TextInputEditor. (text-input :text v)))
+(defn text-input-editor []
+  (fn [{v :value}] (TextInputEditor. (text-input :text v))))
+
 
 (deftype TextRenderer [l]
   HasComponent
@@ -287,6 +300,44 @@
           (set-property l :text (str (:value argm)))
           (set-cell-renderer-styles l argm)))
 
-(defn text-renderer []
-  (TextRenderer. (label)))
+(defn text-renderer
+  "Simple renderer for rendering cell data as strings using a label."
+  []
+  #(TextRenderer. (label)))
+
+(deftype CheckboxRenderer [cb value-state-map]
+  HasComponent
+  (component [this] (doto cb (.validate)))
+  Renderer
+  (render [this {v :value :as argm}]
+          (set-property cb :state (value-state-map v))
+          (set-cell-renderer-styles cb argm)))
+
+
+(defn checkbox-renderer
+  "Create a checkbox renderer. Mapping is a function of one argument
+  which defines how cell-values should be mapped to
+  button-states (:selected/true,
+  :unselected/false and :mixed/nil).
+  Default mapping is boolean."
+  ([] (checkbox-renderer boolean))
+  ([mapping-f] #(CheckboxRenderer. (checkbox) mapping-f)))
+
+
+(deftype ListButtonEditor [lb]
+  HasComponent
+  (component [_] (doto lb (.validate)))
+  Editor
+  (value [this] (:text (get-property lb :selected-item)))
+  (on-open [this] (doto lb (.requestFocus))))
+
+(defn list-button-editor
+  "Simple list-button editor. list-data is a list of hashmaps with :text and :icon keys.
+  Upon selection, the :text is stored in the table cell."
+  [list-data]
+  (fn [{v :value}]
+    (ListButtonEditor. (list-button :list-data list-data
+                                    :selected-item (->> list-data
+                                                        (filter #(= v (:text %)))
+                                                        first)))))
 
