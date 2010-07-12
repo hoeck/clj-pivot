@@ -4,15 +4,18 @@
 ;; through sample applications
 
 (ns hoeck.pivot.examples.code-browser
-  (:require [hoeck.pivot.components :as c]
+  (:require [hoeck.pivot.content.table-view :as ctv]
+            [hoeck.pivot.components :as c]
             [hoeck.pivot.listeners :as l]
-            [hoeck.pivot :as pivot]))
+            [hoeck.pivot :as pivot])
+  (:import (java.io PrintWriter StringWriter)))
 
 ;;;;;;;;;;;;;;;
 
 (def example-resources ["celsius.clj"
                         "forms.clj"
-                        "tooltips.clj"])
+                        "tooltips.clj"
+                        "table-views.clj"])
 
 (defn slurp-stream
   "Reads the stream is by f using the encoding enc into a string
@@ -77,26 +80,40 @@
   (c/table-pane
    :styles {:vertical-spacing 2}
    :cols [[1]]
-   [(c/boxpane :styles {:fill true}
-               :orientation :horiz
+   (c/table-pane-row
+    :height -1
+    (c/boxpane :styles {:fill true}
+               :orientation :vert
                (c/separator :heading "Description")
                (c/text-area :editable false
                             :text ""
-                            :user-name ::description))]
+                            :user-name ::description)))
    (c/table-pane-row
     :height [1]
     (c/border :title " code "
               (c/scrollpane
                :vert-scrollbar-policy :fill-to-capacity
                :horiz-scrollbar-policy :fill-to-capacity
-               :view (c/text-area :text "(c/push-button :data \"foo\" :user {:name :foo :tooltip \"blah\nblah\"})"
+               :view (c/text-area :text "(c/push-button :data \"hello\")"
                                   :user-name ::source))))
-   [(c/table-pane :cols [-1 [10] 100]
-                  [(c/label :styles {:vertical-alignment :center} "result:")
-                   (c/label :styles {:vertical-alignment :center} :text "" :user-name ::result)
-                   (c/push-button :data "eval"
-                                  :preferred-width [* 100 *]
-                                  :user-name ::eval-button)])]))
+   [(c/table-pane :cols [[1] 100]
+                  :styles {:horizontal-spacing 2}
+                  [(c/rollup
+                    :styles {:fill true}
+                    :heading (c/boxpane (c/label :styles {:vertical-alignment :center} "result:")
+                                        (c/label :styles {:vertical-alignment :center}
+                                                 :text ""
+                                                 :user-name ::result))
+                    :content (c/scrollpane
+                              :preferred-height [50 250 500]
+                              :vert-scrollbar-policy :fill-to-capacity
+                              :horiz-scrollbar-policy :fill-to-capacity
+                              :view (c/text-area :styles {:vertical-alignment :center}
+                                                 :text ""
+                                                 :user-name ::result-area)))
+                   (c/boxpane :styles {:fill true}
+                              :orientation :vert
+                              (c/push-button :data "eval" :user-name ::eval-button))])]))
 
 (defn load-code [r src descr]
   (-> r
@@ -107,7 +124,9 @@
       (c/set-property :text src))
   (-> r
       (c/find-component ::description)
-      (c/set-property :text descr)))
+      (c/set-property :text descr)
+      ;;(doto (.invalidate) (.validate))
+      ))
 
 (defn tutorial-pane []
   (c/splitpane
@@ -122,19 +141,62 @@
                   :content thing)
   nil)
 
+(defn get-current-component []
+  (-> pivot/display (c/find-component ::demo-component-border)
+      (c/get-property :content)))
+
+(defn inspector-component []
+  (let [data (ds/make-list [])
+        table-view (c/table-view
+                    :data data
+                    :user-name ::inspector-detail
+                    (c/table-view-column :header-data "Property"
+                                         :width 150
+                                         :renderer (ctv/text-renderer)
+                                         :name :property)
+                    (c/table-view-column :header-data "Value"
+                                         :width 150
+                                         :renderer (ctv/text-renderer)
+                                         :name :value)
+                    (c/table-view-column :header-data "Documentation"
+                                         :width -1
+                                         :renderer (ctv/text-renderer)
+                                         :name :doc))]
+    (c/scrollpane
+     :horiz-scrollbar-policy :fill-to-capacity
+     :column-header (c/table-view-header :table-view table-view)
+     :view table-view)))
+
+(defn inspect-component [c]
+  (let [props (c/get-all-property-defs c)
+        
+        data (map (fn [[k {d :doc, g :getter}]] {:property k :value (g c) :doc d})
+                  props)
+        inspector-tv (c/find-component pivot/display ::inspector-detail)]
+    (c/set-property inspector-tv :data (ds/make-list data))))
+
 (defn show-result [r]
   (c/set-property (c/find-component pivot/display ::result)
-                  :text (pr-str r)))
+                  :text (pr-str r))
+  (let [area-text (if (instance? Throwable r)
+                    (let [w (StringWriter.)]
+                      (.printStackTrace (Exception.) (PrintWriter. w))
+                      (str r "\n" w))
+                    (pr-str r))]
+    (c/set-property (c/find-component pivot/display ::result-area)
+                    :text area-text)))
 
 (defn eval-action [c]
   (let [src (-> c
                 (c/find-component ::source)
                 (c/get-property :text))
         r (try
-           (load-string (str "(in-ns 'demo) (def show hoeck.pivot.examples.code-browser/show-component) " src))
+           (load-string (str "(in-ns 'demo) (def show identity) " src))
            (catch Exception e e))]
     (show-result r)
-    (when (c/component? r) (show-component r))))
+    (when (c/component? r)
+      (show-component r)
+      (inspect-component r))))
 
 (defn tut-menu []
   (apply c/accordion
@@ -156,7 +218,10 @@
             (c/splitpane
              :split-ratio 0.2
              :left (tut-menu)
-             :right (tutorial-pane))))]
+             :right (c/splitpane
+                     :split-ratio 0.6
+                     :left (tutorial-pane)
+                     :right (c/border (inspector-component))))))]
     (-> (c/find-component c ::eval-button)
         (c/set-property :action #(eval-action c)))
     c))
@@ -166,7 +231,8 @@
   (clojure.core/refer 'clojure.core)
   (require '[hoeck.pivot.components :as c]
            '[hoeck.pivot.listeners :as l]
-           '[hoeck.pivot :as pivot])
+           '[hoeck.pivot :as pivot]
+           '[hoeck.pivot.content.table-view :as content])
   (in-ns 'hoeck.pivot.examples.code-browser))
 
 (defn launch []
@@ -177,3 +243,11 @@
 
 ;; to launch from the repl: (do (pivot/start) (launch))
 ;; closing the then opened window will close the repl too
+
+(comment
+  (require '[hoeck.pivot.content.table-view :as tv])
+  (require '[hoeck.pivot.datastructures :as ds])
+  (defn throw-last-uncaught []
+    (throw @hoeck.pivot.Application/last-uncaught-exception))
+  (throw-last-uncaught)
+  )
