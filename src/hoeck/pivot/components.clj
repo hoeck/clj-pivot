@@ -283,11 +283,24 @@
     :asc SortDirection/ASCENDING
     :desc SortDirection/DESCENDING))
 
-(defn get-button-state [key]
+(defn get-button-state
+  "Return a ButtonState from a key, possible values:
+  :selected, :mixed and :unselected.
+  logical true key values equal :selected.
+  false maps to an :unselected buttonstate.
+  nil to :mixed.
+  When given a Button$State object, returns the corresponding keyword."
+  [key]
   (condp = key
     :selected Button$State/SELECTED
     :mixed Button$State/MIXED
-    :unseleced Button$State/UNSELECTED))
+    :unselected Button$State/UNSELECTED
+    Button$State/SELECTED :selected
+    Button$State/UNSELECTED :unselected
+    Button$State/MIXED :mixed
+    (cond key (get-button-state :selected)
+          (nil? key) (get-button-state :mixed)
+          :else (get-button-state :unselected))))
 
 (defn get-button-data
   "Get :icon and :text from a ButtonData instance, or return bd."
@@ -1216,7 +1229,13 @@
   :columns
   (alter-table-view-columns t it)
   (table-view-column-map t)
-  "The table-views columns. A modifyable wit a list, vector or map of name->col, see ")
+  "The table-views columns. Modifyable with a list, vector or map of name->col, see alter-table-view-columns."
+
+  :sort
+  (cond (nil? it) (.clearSort t)
+        (map? it) (doseq [[k v] it] (.setSort t (str k) (and v (get-sort-direction v)))))
+  (dictionary->hashmap (.getSort t))
+  "Access to the table-view's sort dictionary. Returns a map of column-name to sort-directory.")
 
 (defcomponent table-view [args columns] ;; actually, components are TableView$Columns
   (with-component [t TableView]
@@ -1238,7 +1257,6 @@
   uses it to get the value to render. Uses name for symbols/keywords to get the
   string."
 
-  :sort-direction (.setSortDirection t (get-sort-direction it)) (.getSortDirection t) ":asc or :desc (for ascending or descending sort order)"
   :width (set-relative-size .setWidth t it) (get-relative-size .getWidth t) "the column width, [width] to set a relative width")
 
 (defcomponent table-view-column [args] ;; not a component, but an object with properties
@@ -1280,7 +1298,7 @@
 (defproperties Button [b]
   :action (.setAction b (make-button-action it)) (.getAction b)
   "an Action (a function without args, see make-button-action)"
-  :group (.setGroup b (if (instance? ButtonGroup it) it (str it))) (.getGroup b)
+  :group (.setButtonGroup b it) (.getButtonGroup b)
   "the button group, either sth stringable or a ButtonGroup"
   
   :data
@@ -1289,7 +1307,9 @@
   "the buttons text (string) or [icon] or [icon, text]."
   :selected (.setSelected b it) (.isSelected b) "a flag"
   :selected-key (.setSelectedKey b (str it)) (.getSelectedKey b) "key for data binding"
-  :state (.setState b (get-button-state it)) (.getState b)
+  :state
+  (.setState b (get-button-state it))
+  (get-button-state (.getState b))
   "button state, one of: :selected :mixed :unselected"
   
   :toggle-state (.setToggleButton b it) (.isToggleButton b) "toggle-state flag"
@@ -1311,7 +1331,10 @@
 
 (defproperties ListButton [l]
   :disabled-filter (.setDisabledItemFilter l (make-filter it)) (.getDisabledItemFilter l) "a predicate filtering items"
-  :list-data (.setListData l it) (.getListData l) "the listbuttons data, a List"
+  :list-data
+  (.setListData l (make-list (map make-list-item it)))
+  (.getListData l)
+  "the listbuttons data, a List"
   :selected-item (.setSelectedItem l it) (.getSelectedItem l) "set an item to select/get the selected item"
   :selected-item-key (.setSelectedItemKey l (str it)) (.getSelectedItemKey l) "a key (string) for databinding"
   :item-renderer
