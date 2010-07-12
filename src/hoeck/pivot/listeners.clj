@@ -229,7 +229,7 @@
        ;; deftype implementing the listener iface
        ;; eg: ContainerMouseListenerImpl
        (deftype ~dt-cname [~f]
-           clojure.lang.IPersistentMap
+           ;;clojure.lang.IPersistentMap
            ~((force listener-classname-map) listener-cname)
            ~@(map (fn [method-name]
                     (let [[argmap argvec] (get-listener-method-argmap (method-m method-name))]
