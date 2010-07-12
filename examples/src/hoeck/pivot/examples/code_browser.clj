@@ -146,9 +146,8 @@
       (c/get-property :content)))
 
 (defn inspector-component []
-  (let [data (ds/make-list [])
-        table-view (c/table-view
-                    :data data
+  (let [table-view (c/table-view
+                    :data []
                     :user-name ::inspector-detail
                     (c/table-view-column :header-data "Property"
                                          :width 150
@@ -173,7 +172,7 @@
         data (map (fn [[k {d :doc, g :getter}]] {:property k :value (g c) :doc d})
                   props)
         inspector-tv (c/find-component pivot/display ::inspector-detail)]
-    (c/set-property inspector-tv :data (ds/make-list data))))
+    (c/set-property inspector-tv :data data)))
 
 (defn show-result [r]
   (c/set-property (c/find-component pivot/display ::result)
