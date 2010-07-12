@@ -148,15 +148,16 @@
                              "73.4 Fahrenheit"))))
 
 ;; separate from the layout, we will define the convert functionality
-(defn convert-action [r]
-  (let [ti (c/find-component r ::celsius-input)
+(defn convert-action []
+  (let [r pivot/display
+        ti (c/find-component r ::celsius-input)
         l (c/find-component r ::fahrenheit-label)]
     (c/set-property l :text (convert (c/get-property ti :text)))))
 
 ;; now we set the action
 (pivot/disp-> 
  (c/find-component ::convert-button)
- (c/set-property :action #(convert-action r)))
+ (c/set-property :action convert-action))
 
 ;; ---title---
 ;; (8) change listeners

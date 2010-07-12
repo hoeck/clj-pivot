@@ -6,12 +6,12 @@
   `(pivot-> (pivot/show (do ~@body))))
 
 ;; ---title---
-;; forms tutorial
+;; Forms Tutorial
 ;; ---description---
 ;; learn how to use a table-pane to lay out forms
 
 ;; ---title---
-;; setup
+;; (0) setup
 ;; ---description---
 ;; set up aliases to the required clj-pivot namespaces
 ;; ---code---
@@ -19,7 +19,7 @@
 (require '[hoeck.pivot.components :as cm])
 
 ;; ---title---
-;; form components
+;; (1) form components
 ;; ---description---
 ;; To create a form similar to the one at: (warning: loads an applet)
 ;; http://pivot.apache.org/tutorials/forms.html, 
@@ -33,7 +33,7 @@
             (c/text-input :prompt "text-input")))
 
 ;; ---title---
-;; boxpane container
+;; (2) boxpane container
 ;; ---description---
 ;; Trying to lay out form components with a boxpane container.
 ;; ---code---
@@ -48,7 +48,7 @@
 
 
 ;; ---title---
-;; table-pane columns
+;; (3) table-pane columns
 ;; ---description---
 ;; A table-pane will do a better job at laying out forms
 
@@ -76,7 +76,7 @@
 
 
 ;; ---title---
-;; table-pane column spanning
+;; (4) table-pane column spanning
 ;; ---description---
 ;; Make the separator span over multiple columns.
 ;; ---code---
@@ -97,7 +97,7 @@
                     (c/text-input :prompt "street"))))
 
 ;; ---title---
-;; table-pane label alignment
+;; (5) table-pane label alignment
 ;; ---description---
 ;; Use label :styles to align the label-text with the textinput-text
 ;; horizontally
@@ -120,38 +120,38 @@
                     (c/text-input :prompt "street"))))
 
 ;; ---title---
-;; the whole form
+;; (6) the whole form
 ;; ---description---
 ;; generating the whole name-addres-contact form
 ;; ---code---
 (show
- (cm/table-pane
+ (c/table-pane
   :styles {:horizontal-spacing 3
            :vertical-spacing 3
            :padding [2 2 2 2]}
   :cols [-1 [60] [20] [20]]
-  (cm/table-pane-row (label "Name:")
-                     (cm/text-input :prompt "last")
-                     [(cm/text-input :prompt "first") [2]])
-  (cm/table-pane-row [(cm/separator :heading "Adress") [4]])
-  (cm/table-pane-row (label "Home:")
-                     [(cm/text-input :prompt "street") [3]])
-  (cm/table-pane-row (cm/filler)
-                     (cm/text-input :prompt "city")
-                     (cm/text-input :prompt "state")
-                     (cm/text-input :prompt "zip"))
-  (cm/table-pane-row :height 0 (cm/filler))
-  (cm/table-pane-row (label "Work:")
-                     [(cm/text-input :prompt "street") [3]])
-  (cm/table-pane-row (cm/filler)
-                     (cm/text-input :prompt "city")
-                     (cm/text-input :prompt "state")
-                     (cm/text-input :prompt "zip"))
-  (cm/table-pane-row [(cm/separator :heading "Phone Numbers") [4]])
-  (cm/table-pane-row (label "Home:") [(cm/text-input) [2]])
-  (cm/table-pane-row (label "Work:") [(cm/text-input) [2]])
-  (cm/table-pane-row [(cm/separator :heading "Email Addresses") [4]])
-  (cm/table-pane-row (label "Home:") [(cm/text-input) [2]])
-  (cm/table-pane-row (label "Work:") [(cm/text-input) [2]])))
+  (c/table-pane-row (label "Name:")
+                     (c/text-input :prompt "last")
+                     [(c/text-input :prompt "first") [2]])
+  (c/table-pane-row [(c/separator :heading "Adress") [4]])
+  (c/table-pane-row (label "Home:")
+                     [(c/text-input :prompt "street") [3]])
+  (c/table-pane-row (c/filler)
+                     (c/text-input :prompt "city")
+                     (c/text-input :prompt "state")
+                     (c/text-input :prompt "zip"))
+  (c/table-pane-row :height 0 (c/filler))
+  (c/table-pane-row (label "Work:")
+                     [(c/text-input :prompt "street") [3]])
+  (c/table-pane-row (c/filler)
+                     (c/text-input :prompt "city")
+                     (c/text-input :prompt "state")
+                     (c/text-input :prompt "zip"))
+  (c/table-pane-row [(c/separator :heading "Phone Numbers") [4]])
+  (c/table-pane-row (label "Home:") [(c/text-input) [2]])
+  (c/table-pane-row (label "Work:") [(c/text-input) [2]])
+  (c/table-pane-row [(c/separator :heading "Email Addresses") [4]])
+  (c/table-pane-row (label "Home:") [(c/text-input) [2]])
+  (c/table-pane-row (label "Work:") [(c/text-input) [2]])))
 
 
