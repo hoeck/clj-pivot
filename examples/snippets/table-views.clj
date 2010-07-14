@@ -33,7 +33,7 @@
 ;; (2) Displaying the table-view
 ;; ---description---
 ;; Create a table view and describe the columns it should display.
-;; Only four empty rows are displayes.
+;; Only four empty rows are displayed.
 ;; ---code---
 (show (c/table-view
        :data table-view-data
@@ -61,6 +61,7 @@
 ;; (4) Table-view headers
 ;; ---description---
 ;; Embed the table-view inside a scrollpane and add column headers.
+;; Try to move the divider above this description up, to reduce the vertical room for the ‘show’ area, so that the scrollbars will appear.
 ;; ---code---
 (let [tv (c/table-view
          :data table-view-data
