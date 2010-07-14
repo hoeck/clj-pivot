@@ -137,8 +137,10 @@
    :bottom (eval-area)))
 
 (defn show-component [thing]
-  (c/set-property (c/find-component pivot/display ::demo-component-border)
-                  :content thing)
+  (let [border (c/find-component pivot/display ::demo-component-border)
+        current-component (c/get-property border :content)]
+    (when (not= thing current-component)
+      (c/set-property border :content thing)))
   nil)
 
 (defn get-current-component []
@@ -190,7 +192,7 @@
                 (c/find-component ::source)
                 (c/get-property :text))
         r (try
-           (load-string (str "(in-ns 'demo) (def show identity) " src))
+           (load-string (str "(in-ns 'demo) (def show hoeck.pivot.examples.code-browser/show-component) " src))
            (catch Exception e e))]
     (show-result r)
     (when (c/component? r)
