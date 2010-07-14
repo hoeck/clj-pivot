@@ -22,6 +22,7 @@
   ;; excuse: pivot/display is only set once when starting pivot
   (require 'hoeck.pivot)
   (alter-var-root #'hoeck.pivot/display (constantly disp))
+  (alter-var-root #'hoeck.pivot/event-dispatch-thread (constantly (Thread/currentThread)))
   (when-let [rq (or
                  ;; use a commandline argument like:
                  ;; --require=foo.bar.namespace
