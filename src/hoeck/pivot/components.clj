@@ -80,7 +80,7 @@
                                          ListViewItemEditor
                                          TreeViewNodeRenderer
                                          TreeViewNodeEditor
-					 TreeBranch
+					 ;;TreeBranch
 					 TreeNode
                                          ButtonData
                                          ListItem)
@@ -89,7 +89,8 @@
 	   (org.apache.pivot.collections Map Dictionary)
            (org.apache.pivot.wtk.skin CardPaneSkin$SelectionChangeEffect)
 	   (java.awt Color Font)
-	   (java.net URL)))
+	   (java.net URL)
+           (hoeck.pivot.components TreeBranch)))
 
 (defn throwf [fmt & args]
   (throw (Exception. (apply format fmt args))))
@@ -549,6 +550,19 @@
     (isa? arg TreeView$NodeRenderer) arg
     :else (make-tree-view-node-renderer arg)))
 
+(defn tree-node
+  "Return a TreeNode which implements clojure.lang.ILookup. Set
+  the :icon and :text properties, all additional keys are accessible
+  by keyword lookup on the node."
+  [& {:keys [text icon] :as data}]
+  (proxy
+      [TreeNode clojure.lang.ILookup]
+      [(when-let [i icon] (get-icon icon))
+       (when-let [t text] (str text))]
+    (valAt ([k] (get data k))
+           ([k nf] (get data k nf)))))
+
+
 ;; tools for component constructors
 
 (defn parse-component-args
@@ -586,9 +600,10 @@
   Classname may also be a list, in which case the lists rest is used as 
   arguments to the ctor."
   [[component-name classname] & body]
-  `(let [~component-name (or (:self ~'args) (new ~@(if (seq? classname)
-						     classname
-						     (list classname))))
+  `(let [~component-name (or (:self ~'args)
+                             (new ~@(if (seq? classname)
+                                      classname
+                                      (list classname))))
          ~'args (dissoc ~'args :self)]
      (set-properties ~component-name ~'args)
      ~@body
@@ -1440,33 +1455,40 @@
 (defcomponent tree-view [args]
   (with-component [t TreeView]))
 
-(defproperties TreeNode [t]
-  :icon (when-it (get-icon it) (.setIcon t it)) (.getIcon t) "a node icon"
-  :text (.setText t (str it)) (.getText t) "node label/text")
-
-(defcomponent tree-node [args]
-  (with-component [t TreeNode]))
+(set-documentation tree-view (TreeView.) :keys)
 
 (defproperties TreeBranch [b]
   :nodes
-  (if (or (seq? it) (vector? it)) 
+  (if (or (seq? it) (vector? it))
     (doseq [n it] (.add b n))
     (.add b it))
   (seq b)
-  "a seq or vector of nodes; setting adds them, reading shows them"
+  "A seq or vector of nodes; setting adds them, reading shows them."
 
   :comparator (.setComparator b it) (.getComparator b)
-  "comparator to sort the nodes in this branch (clojure fns implement the comparator interface)"
+  "Comparator to sort the nodes in this branch (clojure fns implement the comparator interface)."
   
-  :expanded-icon (when-it (get-icon it) (.setExpandedIcon b it)) (.getExpandedIcon b) "expanded icon"
-  )
+  :expanded-icon (when-it (get-icon it) (.setExpandedIcon b it)) (.getExpandedIcon b) "Expanded icon."
+
+  :icon
+  (when-it (get-icon it) (.setIcon b it))
+  (.getIcon b)
+  "The icon to display."
+
+  :text
+  (.setText b (str it))
+  (.getText b)
+  "The nodes text."
+  
+  :user
+  (.setUserData b it)
+  (.getUserData b)
+  "Userdata map")
 
 (defcomponent tree-branch [args tree-nodes]
   (with-component [t TreeBranch]
     (doseq [n tree-nodes] (.add t n))))
 
-(set-documentation tree-view (TreeView.) :keys)
-(set-documentation tree-node (TreeNode.) :keys)
 (set-documentation tree-branch (TreeBranch.) :keys & tree-nodes)
 
 

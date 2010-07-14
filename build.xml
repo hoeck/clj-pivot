@@ -36,6 +36,7 @@
       <sysproperty key="clojure.compile.path" value="${build.dir}" />
       <classpath refid="classpath" />
       <arg value="hoeck.pivot" />
+      <arg value="hoeck.pivot.components.TreeBranch" />
       <arg value="hoeck.pivot.components" />
       <arg value="hoeck.pivot.listeners" />
       <arg value="hoeck.pivot.forms" />
