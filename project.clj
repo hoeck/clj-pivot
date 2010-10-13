@@ -1,17 +1,19 @@
 
-(defproject clj-pivot "0.1.2"
+(defproject clj-pivot "0.2"
     :description "A Clojure library for Apache Pivot"
     :url "http://github.com/hoeck/clj-pivot"
-    :dependencies [[org.clojure/clojure "1.2.0-master-SNAPSHOT"]
-                   [org.clojars.hoeck/apache-pivot-wtk-terra "1.4"]]
+    :dependencies [[org.clojure/clojure "1.2.0"]
+                   [org.clojars.hoeck/apache-pivot-wtk-terra "1.5.1"]]
     ;; compile everything except tools
     :namespaces (hoeck.pivot
-                 hoeck.pivot.examples
-                 hoeck.pivot.examples.GenclassApp
+                 hoeck.pivot.components.TreeBranch
                  hoeck.pivot.components
                  hoeck.pivot.listeners
+                 hoeck.pivot.forms
                  hoeck.pivot.icons
                  hoeck.pivot.datastructures
-                 hoeck.pivot.forms
                  hoeck.pivot.content
-                 hoeck.pivot.content.table-view))
+                 hoeck.pivot.content.table-view
+                 hoeck.pivot.Application))
+
+
