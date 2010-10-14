@@ -30,12 +30,12 @@
                  ;; or a property file named `startup.properties'
                  ;; located in a classpath root with the contents:
                  ;; hoeck.pivot.require=foo.bar.namespace
-                 (let [s (.getResourceAsStream
-                          (clojure.lang.RT/baseLoader)
-                          "startup.properties")
-                       properties (doto (new java.util.Properties)
-                                    (.load s))]
-                   (.getProperty properties "hoeck.pivot.require")))]
+                 (when-let [s (.getResourceAsStream
+                               (clojure.lang.RT/baseLoader)
+                               "startup.properties")]
+                   (let [properties (doto (new java.util.Properties)
+                                      (.load s))]
+                     (.getProperty properties "hoeck.pivot.require"))))]
     (require (symbol rq))))
 
 (defn -shutdown [this optional?]
