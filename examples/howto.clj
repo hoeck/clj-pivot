@@ -36,7 +36,7 @@ http://github.com/downloads/hoeck/clj-pivot/clj-pivot.jar
 ;; first, we have to require the pivot toplevel namespace with:
 (require '[hoeck.pivot :as pivot])
 ;; to use any components, we have to use:
-(require '[hoeck.pivot.components :as c])
+(require '[hoeck.pivot.components :as cm])
 ;; thats it
 
 ;; pivot/start takes a function which is called at startup time
