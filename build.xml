@@ -19,11 +19,12 @@
   </path>
   
   <target name="clean" description="Remove generated files">
+    <delete dir="${build.dir}" />
     <delete file="${demo.jar}" />
     <delete file="clj-pivot.jar" />
   </target>
 
-  <target name="init" depends="clean">
+  <target name="init">
     <tstamp/>
     <mkdir dir="${build.dir}" />
   </target>
