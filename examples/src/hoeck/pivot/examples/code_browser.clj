@@ -108,8 +108,7 @@
                               :preferred-height [50 250 500]
                               :vert-scrollbar-policy :fill-to-capacity
                               :horiz-scrollbar-policy :fill-to-capacity
-                              :view (c/text-area :styles {:vertical-alignment :center}
-                                                 :text ""
+                              :view (c/text-area :text ""
                                                  :user-name ::result-area)))
                    (c/boxpane :styles {:fill true}
                               :orientation :vert
@@ -200,15 +199,20 @@
       (inspect-component r))))
 
 (defn tut-menu []
-  (apply c/accordion
-         (map (fn [{:keys [title, description, sections] :as foo}]
-                (c/accordion-panel :label title
-                                   (apply c/boxpane :orientation :vert
-                                          (map (fn [{:keys [title code description]}]
-                                                 (c/link-button :data title
-                                                                :action #(pivot/disp-> (load-code code (str description)))))
-                                               sections))))
-          tutorials)))
+  (let [acc (apply c/accordion
+                   (map (fn [{:keys [title, description, sections] :as foo}]
+                          (c/accordion-panel :label title
+                                             (apply c/boxpane :orientation :vert
+                                                    (map (fn [{:keys [title code description]}]
+                                                           (c/link-button :data title
+                                                                          :action #(pivot/disp-> (load-code code (str description)))))
+                                                         sections))))
+                        tutorials))
+        ;; mark-listener (l/button-press-listener
+        ;;                {b :button}
+        ;;                (c/set-property b :styles))
+        ]
+    acc))
 
 (defn gui []
   (let [c (c/table-pane
