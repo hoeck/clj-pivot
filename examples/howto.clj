@@ -48,7 +48,7 @@ http://github.com/downloads/hoeck/clj-pivot/clj-pivot.jar
 ;; if an exception occurs in the body, it will be thrown in the
 ;; calling thread, e.g. the REPL
 ;; now were testing the created frame
-(pivot/pivot-do (pivot/show @pivot/*display* (cm/push-button :data "convert")))
+(pivot/pivot-do (pivot/show pivot/display (cm/push-button :data "convert")))
  
 ;; pivot/show takes a display and a component and shows it on the display
 ;; push-button is a function to construct standard buttons
@@ -60,7 +60,7 @@ http://github.com/downloads/hoeck/clj-pivot/clj-pivot.jar
 
 ;; to have a basis for this howto, we make it even shorter
 (defmacro with-pivot-show [& body]
-  (pivot/disp-> (pivot/show (do ~@body))))
+  `(pivot/disp-> (pivot/show (do ~@body))))
 
 ;;  (2) the components
 ;; now we take a look at the components we need for our little converter
@@ -172,12 +172,12 @@ http://github.com/downloads/hoeck/clj-pivot/clj-pivot.jar
 
 ;; separate from the layout, we will define the convert functionality
 (defn convert-action []
-  (let [ti (cm/find-component @*display* ::celsius-input)
-        l (cm/find-component @*display* ::fahrenheit-label)]
+  (let [ti (cm/find-component pivot/display ::celsius-input)
+        l (cm/find-component pivot/display ::fahrenheit-label)]
     (cm/set-property l :text (convert (cm/get-property ti :text)))))
 
 ;; now we set the action
-(pivot/pivot-do (-> @*display*
+(pivot/pivot-do (-> pivot/display
                     (cm/find-component ::convert-button)
                     (cm/set-property :action convert-action)))
 
@@ -218,7 +218,7 @@ http://github.com/downloads/hoeck/clj-pivot/clj-pivot.jar
                 ;; on all invocations of this listener
                 (convert-action))]
   ;; add the listener to the desired component:
-  (l/add-listener (cm/find-component @*display* ::celsius-input)
+  (l/add-listener (cm/find-component pivot/display ::celsius-input)
                   listener))
 
 ;; enjoy converting temperatures!
