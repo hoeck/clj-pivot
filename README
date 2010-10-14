@@ -7,12 +7,22 @@ Example
   (:require [hoeck.pivot :as pivot]
             [hoeck.pivot.components :as cm]))
 
-(pivot/start #(pivot/show % (cm/boxpane (cm/push-button :data "Hello Pivot"))))
+(pivot/start)
+(pivot/disp->
+  (pivot/show (cm/boxpane (cm/push-button :data "Hello Pivot"))))
 
 
-Getting Started
+Building clj-pivot.jar
 
-see howto.clj for a small introduction to clj-pivot
+> lein deps
+> ant jar-clj-pivot
+
+
+Getting Started with the demo applet
+
+> lein deps
+> ant jar-all
+> java -jar demo.jar
 
 
 Features:
@@ -25,11 +35,11 @@ Features:
    - clean, modern and consistent api
    - dynamic
    - deployable as Desktop Application or Applet
+   - event-based collections for keeping widgets in sync with the model
 
- * use the pivot api from clojure
+ * using the pivot api from clojure
    - less java calls
    - convenient constructor functions
-   - easily to compose custom widgets
    - function level documentation
 
  * declarative GUI definition using s-expressions
@@ -39,16 +49,22 @@ Features:
  * data-binding using clojure hashmaps
 
 
-Limitations
+Limitations/Downsides
 
- * limited to one host window
- * closing the that window will quit the clojure-repl too
- * requires the (unreleased) latest clojure (1.2-snapshot)
+ * limited to one host window (will be resolved in the upcoming pivot 1.6 or 2.0)
+ * closing that window will quit the clojure-repl too
+ * long startup time when used as an applet
+ * slower than swing (100% AWT-Canvas based)
+ * non-native look and feel
 
+Dependencies
+
+ * clojure-1.2
+ * pivot 1.5.1
 
 TODO:
 
  * integrate drag and drop
  * add more custom components
  * more clojure-backed renderers/editors (for tree-views, listboxes ..)
-
+ * implement a messagebus or provide ways to use the pivot messagebus
