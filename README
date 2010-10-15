@@ -11,6 +11,11 @@ Example
 (pivot/disp->
   (pivot/show (cm/boxpane (cm/push-button :data "Hello Pivot"))))
 
+Demo
+
+applet: http://www.turbojugend-cossebaude.de/demo.html
+webstart: http://www.turbojugend-cossebaude.de/demo.jnlp
+jar: http://www.turbojugend-cossebaude.de/demo.jar
 
 Building clj-pivot.jar
 
