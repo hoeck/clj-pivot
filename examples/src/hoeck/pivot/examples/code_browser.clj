@@ -15,7 +15,8 @@
 (def example-resources ["celsius.clj"
                         "forms.clj"
                         "tooltips.clj"
-                        "table-views.clj"])
+                        "table-views.clj"
+                        "tree-view.clj"])
 
 (defn slurp-stream
   "Reads the stream is by f using the encoding enc into a string
@@ -61,7 +62,9 @@
 
 (defn read-examples []
   (->> example-resources
-       (map #(ClassLoader/getSystemResourceAsStream %))
+       ;; cannot use .getSystemResource because in an applet-context
+       ;; those files are not on the systems classloader classpath
+       (map #(-> :a class .getClassLoader (.getResourceAsStream %)))
        (remove nil?)
        (map #(with-open [is %]
                (read-example is)))
@@ -231,11 +234,14 @@
         (c/set-property :action #(eval-action c)))
     c))
 
-(defn demo-ns-setup []
+(defn demo-ns-setup
+  "Set up common requires and aliases for the sinppet namespace."
+  []
   (in-ns 'demo)
   (clojure.core/refer 'clojure.core)
   (require '[hoeck.pivot.components :as c]
            '[hoeck.pivot.listeners :as l]
+           '[hoeck.pivot.datastructures :as ds]
            '[hoeck.pivot :as pivot]
            '[hoeck.pivot.content.table-view :as content])
   (in-ns 'hoeck.pivot.examples.code-browser))
